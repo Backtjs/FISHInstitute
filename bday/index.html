@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>FISH Institute Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root{
+      --cream:#fffaf5;
+      --latte:#f4eadf;
+      --line:#d4b896;
+      --mocha:#6f4e37;
+      --espresso:#3e2723;
+      --cocoa:#8d6e63;
+    }
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      min-height:100vh;
+      font-family: ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
+      background: radial-gradient(circle at top, #fffaf5 0%, #e6ddcf 55%, #d0c1af 100%);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      overflow:hidden;
+      color:var(--espresso);
+    }
+    .root{position:relative;width:100%;height:100vh;}
+
+    /* Intro logo */
+    .logo-wrap{
+      position:absolute;
+      left:50%;top:50%;
+      transform:translate(-50%,-50%);
+      text-align:center;
+      pointer-events:none;
+      animation: logoShrinkMove 3.1s ease forwards;
+      z-index:5;
+    }
+    .logo-main{
+      font-size:34px;font-weight:900;
+      letter-spacing:0.04em;
+      text-transform:uppercase;
+      color:var(--espresso);
+      margin-bottom:8px;
+      white-space:nowrap;
+    }
+    .logo-sub{
+      font-size:13px;
+      letter-spacing:0.16em;
+      text-transform:uppercase;
+      color:var(--cocoa);
+    }
+    .logo-pill{
+      margin:10px auto 0;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 16px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:rgba(255,250,245,0.9);
+      box-shadow:0 10px 25px rgba(62,39,35,0.15);
+      opacity:0;
+      animation: pillAppear 1.2s ease 1.4s forwards;
+    }
+    .logo-pill span:first-child{font-weight:800;font-size:13px;color:var(--mocha);}
+    .logo-pill span:last-child{
+      font-size:11px;text-transform:uppercase;
+      letter-spacing:0.25em;color:var(--cocoa);
+    }
+    @keyframes logoShrinkMove{
+      0%{transform:translate(-50%,-50%) scale(1);opacity:1;}
+      40%{transform:translate(-50%,-50%) scale(1.05);opacity:1;}
+      85%{transform:translate(-50%, -64%) scale(0.65);opacity:1;}
+      100%{transform:translate(-50%, -64%) scale(0.65);opacity:0;}
+    }
+    @keyframes pillAppear{
+      0%{opacity:0;transform:translateY(8px);}
+      100%{opacity:1;transform:translateY(0);}
+    }
+
+    /* Login card */
+    .login-card{
+      position:absolute;
+      left:50%;top:50%;
+      transform:translate(-50%,-50%);
+      width:340px;
+      padding:22px 22px 20px;
+      border-radius:20px;
+      border:2px solid var(--line);
+      background:linear-gradient(145deg,var(--cream),var(--latte));
+      box-shadow:0 24px 60px rgba(62,39,35,0.35);
+      opacity:0;
+      pointer-events:none;
+      animation: loginFadeIn 0.8s ease forwards;
+      animation-delay: 2.4s;
+    }
+    @keyframes loginFadeIn{
+      0%{opacity:0;transform:translate(-50%,-44%);}
+      100%{opacity:1;transform:translate(-50%,-50%);}
+    }
+    .login-card.ready{pointer-events:auto;}
+    .login-title{font-size:16px;font-weight:800;letter-spacing:-0.02em;margin-bottom:4px;}
+    .login-sub{font-size:12px;color:var(--cocoa);margin-bottom:16px;}
+    .field{margin-bottom:14px;}
+    .label{
+      font-size:11px;text-transform:uppercase;
+      letter-spacing:0.16em;color:var(--cocoa);
+      margin-bottom:4px;
+    }
+    .input{
+      width:100%;
+      border-radius:11px;
+      border:1px solid var(--line);
+      padding:8px 11px;
+      font-size:13px;
+      background:rgba(255,250,245,0.9);
+      color:var(--espresso);
+      outline:none;
+    }
+    .input[readonly]{background:rgba(255,250,245,0.6);color:var(--cocoa);cursor:default;}
+    .input:focus{
+      border-color:var(--mocha);
+      box-shadow:0 0 0 1px rgba(111,78,55,0.25);
+    }
+    .hint{font-size:11px;color:var(--cocoa);margin-top:2px;}
+    .login-btn{
+      margin-top:10px;width:100%;
+      border:none;border-radius:999px;
+      padding:9px 14px;font-size:13px;font-weight:700;
+      color:#fff;
+      background:linear-gradient(135deg,var(--mocha),var(--espresso));
+      cursor:pointer;
+      box-shadow:0 14px 30px rgba(62,39,35,0.35);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .login-btn:hover{transform:translateY(-1px);box-shadow:0 18px 40px rgba(62,39,35,0.45);}
+    .login-btn:active{transform:translateY(1px);box-shadow:0 10px 20px rgba(62,39,35,0.35);}
+    .error{margin-top:8px;min-height:16px;font-size:11px;color:#b53a31;}
+
+    /* Overlays */
+    .overlay{
+      position:fixed;inset:0;
+      background:rgba(0,0,0,0.6);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:100;
+    }
+
+    /* Bot question card */
+    .ask-dialog{
+      width:min(420px,94vw);
+      background:linear-gradient(145deg,var(--cream),var(--latte));
+      border-radius:20px;
+      border:2px solid var(--line);
+      box-shadow:0 26px 70px rgba(0,0,0,0.6);
+      padding:18px;
+    }
+    .ask-header{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:8px;
+    }
+    .ask-title{font-size:14px;font-weight:800;}
+    .ask-close{
+      border:none;background:rgba(224,210,193,0.9);
+      border-radius:999px;width:24px;height:24px;
+      cursor:pointer;font-size:15px;color:var(--mocha);
+    }
+    .ask-body{font-size:13px;color:var(--espresso);margin-bottom:12px;}
+    .ask-options{display:flex;gap:8px;margin-bottom:10px;}
+    .ask-btn{
+      border:none;border-radius:999px;
+      padding:7px 14px;font-size:12px;
+      cursor:pointer;
+      background:linear-gradient(135deg,var(--mocha),var(--espresso));
+      color:#fff;
+    }
+    .ask-btn:nth-child(2){
+      background:linear-gradient(135deg,#8d6e63,#5d4037);
+    }
+    .ask-btn.tertiary{
+      margin-top:4px;width:100%;
+      background:none;border:1px dashed var(--cocoa);
+      color:var(--cocoa);text-align:left;
+    }
+    .ask-btn.tertiary:hover{border-style:solid;}
+
+    /* Video dialog */
+    .video-dialog{
+      width:520px;max-width:96vw;
+      background:linear-gradient(145deg,var(--cream),var(--latte));
+      border-radius:20px;
+      border:2px solid var(--line);
+      box-shadow:0 26px 70px rgba(0,0,0,0.6);
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+    }
+    .video-header{
+      display:flex;justify-content:space-between;align-items:center;
+      margin-bottom:8px;
+    }
+    .video-title{font-size:14px;font-weight:800;}
+    .video-close{
+      border:none;background:rgba(224,210,193,0.9);
+      border-radius:999px;width:24px;height:24px;
+      cursor:pointer;font-size:15px;color:var(--mocha);
+    }
+    .video-body{
+      display:flex;justify-content:center;align-items:center;
+    }
+    .video-body video{
+      border-radius:14px;border:1px solid var(--line);
+      max-width:100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="root">
+    <!-- Intro logo -->
+    <div class="logo-wrap">
+      <div class="logo-main">Feline &amp; Individual</div>
+      <div class="logo-main">Systemic Health Institute</div>
+      <div class="logo-sub">F I S H &nbsp; I n s t i t u t e</div>
+      <div class="logo-pill">
+        <span>FISH Institute</span>
+        <span>patient portal</span>
+      </div>
+    </div>
+
+    <!-- Login card -->
+    <div class="login-card" id="loginCard">
+      <div class="login-title">Login to FISH</div>
+      <div class="login-sub">Personal dashboard access for Shifa.</div>
+
+      <div class="field">
+        <div class="label">Login ID</div>
+        <input class="input" type="text" value="Shifa Patel" readonly />
+        <div class="hint">ID is fixed for this portal.</div>
+      </div>
+
+      <div class="field">
+        <div class="label">Password</div>
+        <input class="input" type="password" id="passwordInput" autocomplete="off" />
+        <div class="hint">Hint: two secret keys unlock the portal.</div>
+      </div>
+
+      <button class="login-btn" id="loginBtn">Continue</button>
+      <div class="error" id="errorMsg"></div>
+    </div>
+  </div>
+
+  <!-- Bot question overlay -->
+  <div class="overlay" id="askOverlay">
+    <div class="ask-dialog">
+      <div class="ask-header">
+        <div class="ask-title">Security check</div>
+        <button class="ask-close" id="askClose">×</button>
+      </div>
+      <div class="ask-body">
+        ik no one is using this lameass website but are you sure you not a bot?
+      </div>
+      <div class="ask-options">
+        <button class="ask-btn" data-answer="yes">yes</button>
+        <button class="ask-btn" data-answer="no">no</button>
+      </div>
+      <button class="ask-btn tertiary" id="doomBtn">
+        kya farak padta hai vaise bhi 26 main duniya khatam hai!
+      </button>
+    </div>
+  </div>
+
+  <!-- Video overlay for chimeme.mp4 -->
+  <div class="overlay" id="videoOverlay">
+    <div class="video-dialog">
+      <div class="video-header">
+        <div class="video-title">one last question</div>
+        <button class="video-close" id="videoClose">×</button>
+      </div>
+      <div class="video-body">
+        <video id="chimemeVideo" width="480" height="360" controls playsinline>
+          <source src="chimeme.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const loginCard   = document.getElementById('loginCard');
+    const passwordInp = document.getElementById('passwordInput');
+    const loginBtn    = document.getElementById('loginBtn');
+    const errorMsg    = document.getElementById('errorMsg');
+
+    const askOverlay  = document.getElementById('askOverlay');
+    const askClose    = document.getElementById('askClose');
+
+    const videoOverlay = document.getElementById('videoOverlay');
+    const videoClose   = document.getElementById('videoClose');
+    const chimemeVideo = document.getElementById('chimemeVideo');
+
+    setTimeout(()=> loginCard.classList.add('ready'), 2600);
+
+    function openAsk(){ askOverlay.style.display = 'flex'; }
+    function closeAsk(){ askOverlay.style.display = 'none'; }
+
+    function openVideo(){
+      videoOverlay.style.display = 'flex';
+      chimemeVideo.currentTime = 0;
+      chimemeVideo.play().catch(()=>{});
+    }
+    function closeVideo(){
+      chimemeVideo.pause();
+      videoOverlay.style.display = 'none';
+    }
+
+    function redirectToPuzzle(){
+      window.location.href = 'puzzle_captcha.html';
+    }
+
+    function handleLogin(){
+      const value = (passwordInp.value || '').trim();
+      const ok1 = value === '221203';
+      const ok2 = value === 'willyoumarryme?';
+
+      if(ok1 || ok2){
+        openAsk();
+      }else{
+        errorMsg.textContent = 'Incorrect password. Try again.';
+      }
+    }
+
+    loginBtn.addEventListener('click', handleLogin);
+    passwordInp.addEventListener('keydown', e=>{
+      if(e.key === 'Enter') handleLogin();
+    });
+
+    // bot question overlay
+    askClose.addEventListener('click', closeAsk);
+    askOverlay.addEventListener('click', e=>{
+      if(e.target === askOverlay) closeAsk();
+    });
+
+    // yes/no -> directly to puzzle
+    document.querySelectorAll('.ask-btn[data-answer]').forEach(btn=>{
+      btn.addEventListener('click', redirectToPuzzle);
+    });
+
+    // third option -> play video first
+    document.getElementById('doomBtn').addEventListener('click', ()=>{
+      closeAsk();
+      openVideo();
+    });
+
+    // video overlay behaviour
+    videoClose.addEventListener('click', ()=>{
+      closeVideo();
+      redirectToPuzzle();
+    });
+    videoOverlay.addEventListener('click', e=>{
+      if(e.target === videoOverlay){
+        closeVideo();
+        redirectToPuzzle();
+      }
+    });
+    chimemeVideo.addEventListener('ended', ()=>{
+      closeVideo();
+      redirectToPuzzle();
+    });
+  </script>
+</body>
+</html>

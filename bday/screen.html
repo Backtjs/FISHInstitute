@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FISH Institute - Screen Time Widget Test</title>
+
+  <style>
+    /* Reset & base */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Card base */
+    .card {
+      background: #FFFBF5;
+      border: 1px solid #D4B896;
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(62, 39, 35, 0.12);
+      padding: 20px;
+      max-width: 520px;
+      width: 100%;
+      position: relative;
+    }
+
+    /* Widget top row */
+    .widget__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .widget__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6F4E37;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .widget__nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+    }
+
+    /* Arrow buttons */
+    .widget__arrow {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid #6F4E37;
+      background: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      color: #6F4E37;
+      font-size: 18px;
+      font-weight: 600;
+      padding: 0;
+      z-index: 10;
+    }
+
+    .widget__arrow--prev { left: -50px; }
+    .widget__arrow--next { right: -50px; }
+
+    .widget__arrow:hover {
+      background: #6F4E37;
+      color: #ffffff;
+      transform: translateY(-50%) scale(1.05);
+    }
+
+    .widget__arrow:focus-visible {
+      outline: 3px solid rgba(111, 78, 55, 0.35);
+      outline-offset: 2px;
+    }
+
+    /* Pagination dots */
+    .widget__dots { display: flex; gap: 6px; }
+
+    .widget__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      border: 1.5px solid #A67C52;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .widget__dot:hover { border-color: #6F4E37; }
+
+    .widget__dot[aria-selected="true"] {
+      background: #6F4E37;
+      border-color: #6F4E37;
+      transform: scale(1.2);
+    }
+
+    /* Chart container */
+    .chart {
+      position: relative;
+      padding: 10px 50px 10px 45px;
+      margin-bottom: 20px;
+    }
+
+    .chart__wrapper {
+      position: relative;
+      height: 280px;
+    }
+
+    /* Y-axis */
+    .chart__y-axis {
+      position: absolute;
+      left: -45px;
+      bottom: 20px;
+      height: 240px;
+      display: flex;
+      flex-direction: column-reverse;
+      justify-content: space-between;
+      font-size: 11px;
+      color: #A67C52;
+      font-weight: 500;
+      text-align: right;
+      width: 25px;
+    }
+
+    .chart__y-label {
+      position: absolute;
+      left: -45px;
+      top: -10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #6F4E37;
+    }
+
+    /* Recommended line */
+    .chart__reference {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 116px;
+      border-top: 2px dashed #A67C52;
+      pointer-events: none;
+    }
+
+    .chart__reference-label {
+      position: absolute;
+      right: -50px;
+      top: -10px;
+      font-size: 10px;
+      color: #A67C52;
+      background: #FFFBF5;
+      padding: 0 4px;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    /* Chart grid */
+    .chart__grid {
+      display: flex;
+      justify-content: space-around;
+      align-items: flex-end;
+      height: 240px;
+      position: relative;
+      bottom: -60px;
+      padding-bottom: 0;
+    }
+
+    /* Bar column */
+    .chart__column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      flex: 0 0 70px;
+    }
+
+    .chart__bar {
+      width: 48px;
+      background: #6F4E37;
+      border-radius: 6px 6px 0 0;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .chart__column:hover .chart__bar {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(111, 78, 55, 0.4);
+      opacity: 1;
+    }
+
+    .chart__column:not(:hover) .chart__bar {
+      opacity: 0.5;
+    }
+
+    .chart__icon {
+      margin-top: 10px;
+      font-size: 24px;
+      transition: all 0.2s ease;
+      filter: grayscale(100%) brightness(0) saturate(100%)
+        invert(30%) sepia(25%) saturate(1200%)
+        hue-rotate(350deg) brightness(90%) contrast(90%);
+    }
+
+    .chart__column:hover .chart__icon {
+      transform: scale(1.1);
+      opacity: 1;
+    }
+
+    .chart__column:not(:hover) .chart__icon {
+      opacity: 0.5;
+    }
+
+    /* Info card */
+    .info-card {
+      background: #F5E6D3;
+      border: 1px solid #D4B896;
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-height: 90px;
+      transition: opacity 0.2s ease;
+    }
+
+    .info-card__header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .info-card__icon {
+      font-size: 20px;
+      filter: grayscale(100%) brightness(0) saturate(100%)
+        invert(30%) sepia(25%) saturate(1200%)
+        hue-rotate(350deg) brightness(90%) contrast(90%);
+    }
+
+    .info-card__title {
+      font-weight: 700;
+      font-size: 15px;
+      color: #3E2723;
+    }
+
+    .info-card__duration {
+      font-size: 13px;
+      color: #6F4E37;
+      margin-bottom: 8px;
+    }
+
+    .info-card__divider {
+      height: 1px;
+      background: #D4B896;
+      margin: 8px 0;
+    }
+
+    .info-card__note {
+      font-size: 13px;
+      line-height: 1.5;
+      color: #4A2C2A;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="card" aria-label="Screen time widget">
+    <button class="widget__arrow widget__arrow--prev" id="prevBtn" type="button" aria-label="Previous">‹</button>
+    <button class="widget__arrow widget__arrow--next" id="nextBtn" type="button" aria-label="Next">›</button>
+
+    <div class="widget__top">
+      <h3 class="widget__title">Insta Screen Time Analysis</h3>
+
+      <div class="widget__nav">
+        <div class="widget__dots" id="widgetDots" role="tablist" aria-label="Widget pages">
+          <button class="widget__dot" type="button" aria-selected="false" aria-label="Page 1"></button>
+          <button class="widget__dot" type="button" aria-selected="true" aria-label="Page 2"></button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chart">
+      <div class="chart__wrapper">
+        <div class="chart__y-label">Hours</div>
+
+        <div class="chart__y-axis">
+          <span>0</span>
+          <span>2</span>
+          <span>4</span>
+          <span>6</span>
+          <span>8</span>
+          <span>10</span>
+        </div>
+
+        <div class="chart__reference">
+          <span class="chart__reference-label">Recc.</span>
+        </div>
+
+        <div class="chart__grid" id="chartGrid">
+          <!-- Bars will be inserted here by JS -->
+        </div>
+      </div>
+    </div>
+
+    <div class="info-card" id="infoCard">
+      <div class="info-card__header">
+        <span class="info-card__icon" id="infoIcon"> </span>
+        <span class="info-card__title" id="infoTitle">Cat Reels Exposure</span>
+      </div>
+
+      <div class="info-card__duration" id="infoDuration">Duration: 6.0 hours</div>
+      <div class="info-card__divider"></div>
+
+      <div class="info-card__note" id="infoNote">
+        Clinical note: Excessive feline content consumption detected. Dopamine dependency
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const chartData = [
+      {
+        icon: '🐾',
+        value: 6.0,
+        title: 'Cat Reels Exposure',
+        note: 'Clinical note: Excessive feline content consumption detected. Dopamine dependency with high risk of procrastination.'
+      },
+      {
+        icon: '💧',
+        value: 0.4,
+        title: 'Depressed Reels Exposure',
+        note: 'Clinical note: Minimal engagement with melancholic content. Emotional regulation appears stable at present.'
+      },
+      {
+        icon: '🌍',
+        value: 4.5,
+        title: 'Awareness Content Exposure',
+        note: 'Clinical note: Subject demonstrates high social consciousness; empathy levels elevated and news anxiety within acceptable range.'
+      },
+      {
+        icon: '🧠',
+        value: 10.0,
+        title: 'Brainrot Content Exposure',
+        note: '⚠ Alert: Critical threshold exceeded. Cognitive function at risk; attention span fragmented and executive control compromised.'
+      },
+      {
+        icon: '✨',
+        value: 4.0,
+        title: 'Self-Affirmation Content Exposure',
+        note: 'Clinical note: Therapeutic content consumption within acceptable range. Subject shows good potential for self-compassion and resilience.'
+      }
+    ];
+
+    const chartGrid = document.getElementById('chartGrid');
+    const infoIcon = document.getElementById('infoIcon');
+    const infoTitle = document.getElementById('infoTitle');
+    const infoDuration = document.getElementById('infoDuration');
+    const infoNote = document.getElementById('infoNote');
+
+    function updateInfoCard(item) {
+      infoIcon.textContent = item.icon;
+      infoTitle.textContent = item.title;
+      infoDuration.textContent = `Duration: ${item.value.toFixed(1)} hours`;
+      infoNote.textContent = item.note;
+    }
+
+    // Render bars with correct height calculation
+    chartData.forEach((item) => {
+      const column = document.createElement('div');
+      column.className = 'chart__column';
+
+      const bar = document.createElement('div');
+      bar.className = 'chart__bar';
+
+      // (value/10) * 220px (leaving room for icons)
+      const barHeight = (item.value / 10) * 220;
+      bar.style.height = `${barHeight}px`;
+
+      const icon = document.createElement('div');
+      icon.className = 'chart__icon';
+      icon.textContent = item.icon;
+
+      column.appendChild(bar);
+      column.appendChild(icon);
+
+      column.addEventListener('mouseenter', () => {
+        updateInfoCard(item);
+      });
+
+      // Optional: also update on focus for keyboard users
+      column.tabIndex = 0;
+      column.addEventListener('focus', () => {
+        updateInfoCard(item);
+      });
+
+      chartGrid.appendChild(column);
+    });
+
+    // Initialize with first item
+    updateInfoCard(chartData[0]);
+  </script>
+</body>
+</html>

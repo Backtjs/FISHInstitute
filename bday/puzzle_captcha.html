@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Missing Piece CAPTCHA (10 in 30s)</title>
+
+<style>
+  :root{
+    --cream: #FFFBF5;
+    --latte: #F5E6D3;
+    --tan:   #D4B896;
+    --coffee:#6F4E37;
+    --dark:  #3E2723;
+
+    /* used by dialog buttons */
+    --mocha:#5a3a2e;
+    --espresso:#2b1b16;
+
+    --boardW: 520px;
+    --ratio: 2.17;
+    --gap: 18px;
+
+    --ease-out: cubic-bezier(.16,1,.3,1);
+    --ease-inout: cubic-bezier(.4,0,.2,1);
+  }
+
+  *{ box-sizing:border-box; user-select:none; }
+  html, body{ height:100%; }
+  body{
+    margin:0;
+    height:100vh;
+    overflow:hidden; /* no scroll */
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background: radial-gradient(circle at top, #3d2b23 0, #1a140f 55%, #0e0906 100%);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: var(--dark);
+  }
+
+  /* Hide the game until intro popup vanishes */
+  body.gated .scaleWrap{
+    opacity:0;
+    pointer-events:none;
+  }
+
+  /* subtle ambient background */
+  body::before, body::after{
+    content:"";
+    position:fixed;
+    inset:-18%;
+    pointer-events:none;
+    opacity:.16;
+    filter: blur(34px);
+    background:
+      radial-gradient(circle at 20% 25%, rgba(166,124,82,.55), transparent 38%),
+      radial-gradient(circle at 80% 35%, rgba(111,78,55,.50), transparent 40%),
+      radial-gradient(circle at 45% 80%, rgba(212,184,150,.55), transparent 45%);
+    animation: bgDrift 16s var(--ease-inout) infinite alternate;
+  }
+  body::after{
+    opacity:.10;
+    filter: blur(44px);
+    animation-duration: 20s;
+  }
+  @keyframes bgDrift{
+    from{ transform: translate3d(-1.1%, -0.6%, 0); }
+    to  { transform: translate3d( 1.1%,  0.8%, 0); }
+  }
+
+  /* We scale this wrapper dynamically in JS to ensure everything fits */
+  .scaleWrap{
+    transform-origin: center center;
+    will-change: transform;
+    transition: opacity 420ms var(--ease-out);
+  }
+
+  .stage{
+    position: relative;
+    width: min(980px, 94vw);
+  }
+
+  .card{
+    width: 100%;
+    background: var(--cream);
+    border: 2px solid var(--tan);
+    border-radius: 20px;
+    box-shadow:0 18px 46px rgba(0,0,0,0.28);
+    padding: 16px;
+    opacity:0;
+    transform: translateY(10px);
+    animation: cardIn 650ms var(--ease-out) forwards;
+    position:relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.60), rgba(255,255,255,0) 22%),
+      radial-gradient(120% 110% at 12% 10%, rgba(255,255,255,.40), rgba(255,255,255,0) 58%);
+    opacity:.75;
+  }
+  .card::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    opacity:.06;
+    background-image: radial-gradient(rgba(0,0,0,.9) 1px, transparent 1px);
+    background-size: 6px 6px;
+    mix-blend-mode:multiply;
+  }
+  @keyframes cardIn{
+    to{ opacity:1; transform: translateY(0); }
+  }
+
+  .top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+    margin-bottom: 12px;
+    position:relative;
+    z-index:1;
+    padding-bottom:10px;
+    border-bottom:1px solid rgba(111,78,55,0.18);
+  }
+  .title{
+    margin:0;
+    font-weight: 900;
+    font-size: 16px;
+    color: var(--dark);
+  }
+  .subtitle{
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: #8a6a4c;
+    font-weight: 750;
+  }
+
+  .pills{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+  }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--tan);
+    background: #fff;
+    color: var(--coffee);
+    font-size: 12px;
+    white-space: nowrap;
+    font-weight: 850;
+    box-shadow: 0 10px 20px rgba(0,0,0,.08);
+    transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out);
+  }
+  .pill:hover{ transform: translateY(-1px); box-shadow: 0 14px 26px rgba(0,0,0,.10); }
+  .dot{
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--coffee);
+    opacity: .85;
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 1fr 260px;
+    gap: var(--gap);
+    align-items:start;
+    position:relative;
+    z-index:1;
+  }
+
+  .panel{
+    border: 2px solid var(--tan);
+    border-radius: 18px;
+    background: linear-gradient(180deg, #fff, var(--latte));
+    padding: 12px;
+    box-shadow: inset 0 0 0 1px rgba(62,39,35,0.06);
+  }
+  .panelTitle{
+    font-size: 12px;
+    font-weight: 900;
+    color: var(--coffee);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin: 0 0 10px;
+  }
+
+  .board{
+    position: relative;
+    width: min(var(--boardW), 64vw);
+    height: calc(min(var(--boardW), 64vw) * var(--ratio));
+    max-height: 720px;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(135deg, #f7efe3, #efe1cf);
+    border: 2px solid rgba(111,78,55,0.35);
+  }
+  .boardInner{
+    position:absolute;
+    inset: 12px;
+    border-radius: 12px;
+    overflow:hidden;
+    background: #ead9c5;
+  }
+
+  .grid{
+    position:absolute;
+    inset: 12px;
+    display:grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+  }
+
+  .tile{
+    position: relative;
+    border: 1px solid rgba(111,78,55,0.12);
+    background-repeat: no-repeat;
+    background-image: var(--img); /* none before Start */
+    background-size: calc(100% * 3) calc(100% * 4);
+  }
+
+  .tile.missing{ background-image: none !important; }
+  .tile.missing::after{
+    content:"";
+    position:absolute;
+    inset: 6px;
+    border-radius: 12px;
+    outline: 2px dashed rgba(111,78,55,0.55);
+    outline-offset: -4px;
+    background: rgba(245,230,211,0.40);
+    box-shadow: inset 0 0 0 1px rgba(111,78,55,0.12);
+    animation: missingPulse 1.2s var(--ease-inout) infinite;
+  }
+  .tile.missing.active::after{
+    background: rgba(245,230,211,0.60);
+    outline-color: rgba(111,78,55,0.75);
+  }
+  @keyframes missingPulse{
+    0%,100%{ box-shadow: inset 0 0 0 1px rgba(111,78,55,0.12), 0 0 0 0 rgba(111,78,55,0); }
+    50%{ box-shadow: inset 0 0 0 1px rgba(111,78,55,0.12), 0 0 0 8px rgba(111,78,55,.08); }
+  }
+
+  .board.shake{ animation: shake 0.28s ease; }
+  @keyframes shake{
+    0%{ transform: translateX(0); }
+    25%{ transform: translateX(-10px); }
+    50%{ transform: translateX(10px); }
+    75%{ transform: translateX(-6px); }
+    100%{ transform: translateX(0); }
+  }
+
+  .tray{
+    position: relative;
+    border-radius: 14px;
+    border: 2px solid rgba(111,78,55,0.28);
+    background: linear-gradient(135deg, #f7efe3, #efe1cf);
+    height: calc(min(var(--boardW), 64vw) * var(--ratio));
+    max-height: 720px;
+    overflow: hidden;
+    padding: 12px;
+  }
+  .traySlots{
+    position:absolute;
+    inset: 12px;
+    display:grid;
+    grid-template-rows: 1fr 1fr;
+    gap: 12px;
+  }
+  .slot{
+    border-radius: 14px;
+    border: 1px dashed rgba(111,78,55,0.28);
+    background: rgba(255,255,255,0.40);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+
+  /* Tray "Are you ready?" prompt (dotted background) */
+  .trayPrompt{
+    position:absolute;
+    inset:12px;
+    border-radius: 14px;
+    border: 1px solid rgba(111,78,55,0.18);
+    background:
+      radial-gradient(rgba(0,0,0,.70) 1px, transparent 1px);
+    background-size: 6px 6px;
+    background-color: rgba(255,255,255,.55);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding: 14px;
+    z-index: 5;
+    opacity: 1;
+    transition: opacity 420ms var(--ease-out);
+  }
+  .trayPrompt.hide{
+    opacity:0;
+    pointer-events:none;
+  }
+  .trayPrompt__text{
+    background: rgba(255,255,255,.88);
+    border: 1px solid rgba(111,78,55,0.18);
+    border-radius: 16px;
+    padding: 12px 14px;
+    box-shadow: 0 16px 34px rgba(0,0,0,.12);
+    color: var(--coffee);
+    font-weight: 950;
+    letter-spacing: .02em;
+    font-size: 13px;
+    max-width: 180px;
+  }
+
+  .piece{
+    position: absolute;
+    border-radius: 12px;
+    border: 1px solid rgba(111,78,55,0.45);
+    box-shadow: 0 12px 20px rgba(0,0,0,0.22);
+    background-repeat: no-repeat;
+    background-image: var(--img);
+    cursor: grab;
+    z-index: 50;
+    transition: box-shadow .12s ease, transform .08s ease;
+  }
+  .piece.dragging{
+    cursor: grabbing;
+    z-index: 9999;
+    transform: scale(1.03);
+    box-shadow: 0 18px 30px rgba(0,0,0,0.28);
+  }
+  .piece.locked{
+    cursor: default;
+    box-shadow: none;
+    border-color: rgba(111,78,55,0);
+    pointer-events:none;
+  }
+
+  .footer{
+    display:flex;
+    justify-content:space-between;
+    gap: 12px;
+    margin-top: 12px;
+    align-items:center;
+    flex-wrap: wrap;
+    position:relative;
+    z-index:1;
+  }
+  .hint{
+    font-size: 12px;
+    color:#8a6a4c;
+    font-weight: 800;
+  }
+  .btn{
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: 1px solid rgba(111,78,55,0.35);
+    background: #fff;
+    color: var(--coffee);
+    font-weight: 900;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 12px 22px rgba(0,0,0,.08);
+    transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+  }
+  .btn:hover{ transform: translateY(-1px); box-shadow: 0 16px 30px rgba(0,0,0,.10); }
+  .btn:active{ transform: translateY(1px); }
+
+  .verified{
+    opacity: 0.45;
+    pointer-events:none;
+  }
+  .verified.on{
+    opacity: 1;
+    pointer-events:auto;
+    border-color: rgba(46,125,50,0.35);
+    color: #2e7d32;
+  }
+
+  /* Overlays */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.6);
+    display:none;
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+  }
+
+  /* Intro overlay: 3 seconds */
+  #introOverlay{
+    display:flex;
+    opacity:1;
+    transition: opacity 420ms var(--ease-out);
+    z-index: 200;
+  }
+  #introOverlay.hide{
+    opacity:0;
+    pointer-events:none;
+  }
+
+  .dialog{
+    width:min(420px,94vw);
+    background:linear-gradient(145deg,var(--cream),var(--latte));
+    border-radius:20px;
+    border:2px solid var(--tan);
+    box-shadow:0 26px 70px rgba(0,0,0,0.6);
+    padding:18px;
+  }
+  .dialog-header{
+    font-size:14px;
+    font-weight:900;
+    margin-bottom:8px;
+    color: var(--dark);
+  }
+  .dialog-body{
+    font-size:13px;
+    color:var(--espresso);
+    margin-bottom:12px;
+    font-weight:800;
+  }
+  .dialog-actions{
+    display:flex;
+    gap:8px;
+    justify-content:flex-end;
+  }
+  .dialog-btn{
+    border:none;
+    border-radius:999px;
+    padding:8px 16px;
+    font-size:12px;
+    cursor:pointer;
+    font-weight:900;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:#fff;
+    background:linear-gradient(135deg, var(--mocha), var(--espresso));
+    box-shadow:0 10px 24px rgba(62,39,35,0.35);
+  }
+  .dialog-btn.secondary{
+    background:linear-gradient(135deg, #c8a27b, #8d6e63);
+    color:#fffaf5;
+  }
+
+  .video-dialog{
+    width:520px;max-width:96vw;
+    background:linear-gradient(145deg,var(--cream),var(--latte));
+    border-radius:20px;
+    border:2px solid var(--tan);
+    box-shadow:0 26px 70px rgba(0,0,0,0.6);
+    padding:16px;
+  }
+  .video-header{
+    display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:8px;
+  }
+  .video-title{font-size:14px;font-weight:900;}
+  .video-close{
+    border:none;
+    background:rgba(224,210,193,0.9);
+    border-radius:999px;
+    width:24px;height:24px;
+    cursor:pointer;
+    font-size:15px;
+    color:var(--mocha);
+  }
+  .video-body{
+    display:flex;justify-content:center;align-items:center;
+  }
+  .video-body video{
+    border-radius:14px;border:1px solid var(--tan);
+    max-width:100%;
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    body::before, body::after{ animation:none !important; }
+    .card{ animation:none !important; opacity:1 !important; transform:none !important; }
+    .board.shake{ animation:none !important; }
+    .tile.missing::after{ animation:none !important; }
+    .pill, .btn, .trayPrompt{ transition:none !important; }
+    #introOverlay{ transition:none !important; }
+  }
+</style>
+</head>
+
+<body class="gated">
+  <!-- Intro popup (3 seconds) -->
+  <div class="overlay" id="introOverlay" aria-hidden="false">
+    <div class="dialog" role="dialog" aria-modal="true" aria-label="Captcha intro">
+      <div class="dialog-header">Security check</div>
+      <div class="dialog-body">Clear the next 3 captchas to prove you are not a bot..</div>
+    </div>
+  </div>
+
+  <!-- wrong piece sound -->
+  <audio id="wrongSound" src="faasound.mp3" preload="auto"></audio>
+
+  <div class="scaleWrap" id="scaleWrap">
+    <div class="stage" id="stage">
+      <div class="card" id="card">
+        <div class="top">
+          <div>
+            <h1 class="title">Puzzle verification</h1>
+            <p class="subtitle">Drag the correct piece into the missing spot. 10 puzzles in 30 seconds.</p>
+          </div>
+          <div class="pills">
+            <div class="pill"><span class="dot"></span><span id="roundPill">Round 1/10</span></div>
+            <div class="pill"><span class="dot"></span><span id="timePill">00:30.00</span></div>
+          </div>
+        </div>
+
+        <div class="layout">
+          <div class="panel">
+            <div class="panelTitle">Puzzle board</div>
+            <div class="board" id="board">
+              <div class="boardInner" id="boardInner"></div>
+              <div class="grid" id="grid"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panelTitle">Piece tray</div>
+            <div class="tray" id="tray">
+              <div class="trayPrompt" id="trayPrompt">
+                <div class="trayPrompt__text">Are you ready?</div>
+              </div>
+
+              <div class="traySlots" id="traySlots">
+                <div class="slot" id="slotA"></div>
+                <div class="slot" id="slotB"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer">
+          <div class="hint" id="statusHint">Click Start to begin.</div>
+          <div style="display:flex; gap:10px; align-items:center;">
+            <button class="btn" id="startBtn">Start</button>
+            <button class="btn verified" id="verifiedBtn">Verified</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Next captcha question popup -->
+  <div class="overlay" id="nextOverlay">
+    <div class="dialog">
+      <div class="dialog-header">Nice one.</div>
+      <div class="dialog-body">
+        As you can see, 30 secs is clearly a lot of time. Move on to the next captcha?
+      </div>
+      <div class="dialog-actions">
+        <button class="dialog-btn secondary" id="nextNo">No</button>
+        <button class="dialog-btn" id="nextYes">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meme video popup -->
+  <div class="overlay" id="memeOverlay">
+    <div class="video-dialog">
+      <div class="video-header">
+        <div class="video-title">wait...</div>
+        <button class="video-close" id="memeClose">×</button>
+      </div>
+      <div class="video-body">
+        <video id="memeVideo" width="480" height="360" controls playsinline>
+          <source src="meme_3.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const COLS = 3;
+  const ROWS = 4;
+  const TOTAL = COLS * ROWS;
+  const ROUNDS_TOTAL = 10;
+  const TIME_LIMIT_MS = 30000;
+
+  const IMAGE_COUNT = 10;
+  const IMAGE_PATHS = Array.from({ length: IMAGE_COUNT }, (_, i) =>
+    `puzzle_captcha/puzzle_${i + 1}.jpeg`
+  );
+
+  // do NOT show any image before Start
+  let CURRENT_IMG_URL = ""; // empty => show blank board
+
+  const scaleWrap = document.getElementById("scaleWrap");
+  const stage = document.getElementById("stage");
+  const board = document.getElementById("board");
+  const boardInner = document.getElementById("boardInner");
+  const grid = document.getElementById("grid");
+  const slotA = document.getElementById("slotA");
+  const slotB = document.getElementById("slotB");
+  const trayPrompt = document.getElementById("trayPrompt");
+
+  const roundPill = document.getElementById("roundPill");
+  const timePill = document.getElementById("timePill");
+  const statusHint = document.getElementById("statusHint");
+  const startBtn = document.getElementById("startBtn");
+  const verifiedBtn = document.getElementById("verifiedBtn");
+
+  const wrongSound = document.getElementById("wrongSound");
+
+  const introOverlay = document.getElementById("introOverlay");
+
+  const nextOverlay = document.getElementById("nextOverlay");
+  const nextYes     = document.getElementById("nextYes");
+  const nextNo      = document.getElementById("nextNo");
+
+  const memeOverlay = document.getElementById("memeOverlay");
+  const memeVideo   = document.getElementById("memeVideo");
+  const memeClose   = document.getElementById("memeClose");
+
+  let scale = 1;
+  let running = false;
+  let roundIndex = 0;
+  let startTS = 0;
+
+  let innerRectStage = null;
+  let cellW = 0, cellH = 0;
+
+  let missingId = null;
+  let decoyId = null;
+
+  let correctPieceEl = null;
+  let decoyPieceEl = null;
+
+  let dragging = null;
+  let rafMove = null;
+
+  const allMissingSequence = [];
+
+  function fmtTime(ms){
+    const t = Math.max(0, ms);
+    const s = Math.floor(t / 1000);
+    const cs = Math.floor((t % 1000) / 10);
+    const mm = String(Math.floor(s / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return `${mm}:${ss}.${String(cs).padStart(2,"0")}`;
+  }
+
+  function fitToViewport(){
+    // reset scale to measure natural size
+    scaleWrap.style.transform = "scale(1)";
+    scale = 1;
+
+    const rect = stage.getBoundingClientRect();
+    const margin = 16;
+    const vw = window.innerWidth - margin * 2;
+    const vh = window.innerHeight - margin * 2;
+
+    const s = Math.min(vw / rect.width, vh / rect.height, 1);
+    scale = Number.isFinite(s) ? s : 1;
+    scaleWrap.style.transform = `scale(${scale})`;
+  }
+
+  function rectToStage(el){
+    const sr = stage.getBoundingClientRect();
+    const r = el.getBoundingClientRect();
+    return {
+      left: (r.left - sr.left) / scale,
+      top: (r.top - sr.top) / scale,
+      width: r.width / scale,
+      height: r.height / scale,
+      right: (r.right - sr.left) / scale,
+      bottom: (r.bottom - sr.top) / scale
+    };
+  }
+
+  function mouseToStage(e){
+    const sr = stage.getBoundingClientRect();
+    return {
+      x: (e.clientX - sr.left) / scale,
+      y: (e.clientY - sr.top) / scale
+    };
+  }
+
+  function applyImageVars(){
+    const val = CURRENT_IMG_URL ? `url("${CURRENT_IMG_URL}")` : "none";
+    stage.style.setProperty("--img", val);
+    grid.style.setProperty("--img", val);
+  }
+
+  function buildBoardGrid(){
+    grid.innerHTML = "";
+    innerRectStage = rectToStage(boardInner);
+
+    cellW = innerRectStage.width / COLS;
+    cellH = innerRectStage.height / ROWS;
+
+    applyImageVars();
+
+    for (let i = 0; i < TOTAL; i++){
+      const r = Math.floor(i / COLS);
+      const c = i % COLS;
+      const tile = document.createElement("div");
+      tile.className = "tile";
+      tile.dataset.id = String(i);
+
+      tile.style.backgroundSize = `${cellW * COLS}px ${cellH * ROWS}px`;
+      tile.style.backgroundPosition = `${-c * cellW}px ${-r * cellH}px`;
+
+      grid.appendChild(tile);
+    }
+  }
+
+  function setMissingCell(id){
+    const tiles = Array.from(grid.children);
+    tiles.forEach(t => t.classList.remove("missing","active"));
+    const missingTile = tiles.find(t => t.dataset.id === String(id));
+    if (missingTile) missingTile.classList.add("missing");
+  }
+
+  function pickSequence10Unique(){
+    const ids = Array.from({length: TOTAL}, (_, i) => i);
+    for (let i = ids.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [ids[i], ids[j]] = [ids[j], ids[i]];
+    }
+    return ids.slice(0, ROUNDS_TOTAL);
+  }
+
+  function pickDecoy(exceptId){
+    let d = exceptId;
+    while (d === exceptId) d = Math.floor(Math.random() * TOTAL);
+    return d;
+  }
+
+  function createPiece(kind, tileId, slotEl){
+    const piece = document.createElement("div");
+    piece.className = "piece";
+    piece.dataset.kind = kind;
+    piece.dataset.tileId = String(tileId);
+
+    piece.style.setProperty("--img", CURRENT_IMG_URL ? `url("${CURRENT_IMG_URL}")` : "none");
+    piece.style.width = cellW + "px";
+    piece.style.height = cellH + "px";
+
+    const r = Math.floor(tileId / COLS);
+    const c = tileId % COLS;
+    piece.style.backgroundSize = `${cellW * COLS}px ${cellH * ROWS}px`;
+    piece.style.backgroundPosition = `${-c * cellW}px ${-r * cellH}px`;
+
+    const slotR = rectToStage(slotEl);
+    const x = slotR.left + (slotR.width - cellW)/2;
+    const y = slotR.top + (slotR.height - cellH)/2;
+
+    piece.style.left = x + "px";
+    piece.style.top = y + "px";
+
+    piece.dataset.homeX = String(x);
+    piece.dataset.homeY = String(y);
+
+    stage.appendChild(piece);
+    return piece;
+  }
+
+  function clearPieces(){
+    [correctPieceEl, decoyPieceEl].forEach(el => {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    });
+    correctPieceEl = null;
+    decoyPieceEl = null;
+  }
+
+  function preload(url){
+    return new Promise((resolve, reject) => {
+      const im = new Image();
+      im.onload = () => resolve(true);
+      im.onerror = () => reject(new Error("Image failed: " + url));
+      im.src = url;
+    });
+  }
+
+  async function startRound(idx){
+    roundIndex = idx;
+    roundPill.textContent = `Round ${idx+1}/${ROUNDS_TOTAL}`;
+
+    CURRENT_IMG_URL = IMAGE_PATHS[idx];
+    try {
+      await preload(CURRENT_IMG_URL);
+    } catch (e) {
+      alert("Could not load: " + CURRENT_IMG_URL);
+      running = false;
+      return;
+    }
+
+    buildBoardGrid();
+
+    missingId = allMissingSequence[idx];
+    decoyId = pickDecoy(missingId);
+
+    setMissingCell(missingId);
+    clearPieces();
+
+    const flip = Math.random() < 0.5;
+    correctPieceEl = createPiece("correct", missingId, flip ? slotA : slotB);
+    decoyPieceEl   = createPiece("decoy", decoyId, flip ? slotB : slotA);
+
+    statusHint.textContent = `Place the correct piece. (Decoy will shake & return)`;
+  }
+
+  function getMissingRect(){
+    const r = Math.floor(missingId / COLS);
+    const c = missingId % COLS;
+    return {
+      left: innerRectStage.left + c * cellW,
+      top: innerRectStage.top + r * cellH,
+      right: innerRectStage.left + (c+1) * cellW,
+      bottom: innerRectStage.top + (r+1) * cellH
+    };
+  }
+
+  function isPointInRect(x, y, rect){
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  function setMissingActive(on){
+    const missingTile = Array.from(grid.children).find(t => t.dataset.id === String(missingId));
+    if (!missingTile) return;
+    missingTile.classList.toggle("active", !!on);
+  }
+
+  function shakeBoard(){
+    board.classList.remove("shake");
+    void board.offsetWidth;
+    board.classList.add("shake");
+  }
+
+  function animateTo(el, x, y, cb){
+    el.style.transition = "left 0.16s ease, top 0.16s ease, transform 0.10s ease";
+    el.style.left = x + "px";
+    el.style.top = y + "px";
+    const done = () => {
+      el.style.transition = "";
+      el.removeEventListener("transitionend", done);
+      cb && cb();
+    };
+    el.addEventListener("transitionend", done);
+  }
+
+  function snapCorrectIntoMissing(){
+    const rect = getMissingRect();
+    correctPieceEl.classList.add("locked");
+    setMissingActive(false);
+
+    animateTo(correctPieceEl, rect.left, rect.top, () => {
+      const tile = Array.from(grid.children).find(t => t.dataset.id === String(missingId));
+      if (tile){
+        tile.classList.remove("missing","active");
+        const r = Math.floor(missingId / COLS);
+        const c = missingId % COLS;
+        tile.style.backgroundImage = `url("${CURRENT_IMG_URL}")`;
+        tile.style.backgroundSize = `${cellW * COLS}px ${cellH * ROWS}px`;
+        tile.style.backgroundPosition = `${-c * cellW}px ${-r * cellH}px`;
+      }
+      if (roundIndex + 1 >= ROUNDS_TOTAL){
+        finishWin();
+      } else {
+        startRound(roundIndex + 1);
+      }
+    });
+  }
+
+  function returnToHome(el){
+    const hx = parseFloat(el.dataset.homeX);
+    const hy = parseFloat(el.dataset.homeY);
+    animateTo(el, hx, hy);
+  }
+
+  function onMouseDown(e){
+    if (!running) return;
+    const el = e.target.closest(".piece");
+    if (!el || el.classList.contains("locked")) return;
+
+    e.preventDefault();
+
+    const m = mouseToStage(e);
+    const r = el.getBoundingClientRect();
+    const sr = stage.getBoundingClientRect();
+
+    const elLeft = (r.left - sr.left) / scale;
+    const elTop  = (r.top - sr.top) / scale;
+
+    dragging = {
+      el,
+      kind: el.dataset.kind,
+      offsetX: m.x - elLeft,
+      offsetY: m.y - elTop
+    };
+    el.classList.add("dragging");
+
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  }
+
+  function onMouseMove(e){
+    if (!dragging) return;
+    if (rafMove) return;
+
+    rafMove = requestAnimationFrame(() => {
+      rafMove = null;
+
+      const m = mouseToStage(e);
+      const x = m.x - dragging.offsetX;
+      const y = m.y - dragging.offsetY;
+
+      dragging.el.style.left = x + "px";
+      dragging.el.style.top = y + "px";
+
+      const missRect = getMissingRect();
+      const inMiss = isPointInRect(m.x, m.y, missRect);
+      setMissingActive(inMiss);
+
+      if (inMiss && dragging.kind === "correct"){
+        cleanupDrag();
+        snapCorrectIntoMissing();
+      }
+    });
+  }
+
+  function onMouseUp(e){
+    if (!dragging) return;
+
+    const m = mouseToStage(e);
+    const missRect = getMissingRect();
+    const inMiss = isPointInRect(m.x, m.y, missRect);
+
+    const el = dragging.el;
+    const kind = dragging.kind;
+
+    cleanupDrag();
+    setMissingActive(false);
+
+    if (!inMiss){
+      returnToHome(el);
+      return;
+    }
+
+    if (kind === "decoy"){
+      shakeBoard();
+      try{
+        wrongSound.currentTime = 0;
+        wrongSound.play().catch(()=>{});
+      }catch(err){}
+      returnToHome(el);
+      return;
+    }
+
+    returnToHome(el);
+  }
+
+  function cleanupDrag(){
+    if (!dragging) return;
+    dragging.el.classList.remove("dragging");
+    dragging = null;
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+  }
+
+  function finishWin(){
+    running = false;
+    statusHint.textContent = "Verified ✓";
+    verifiedBtn.classList.add("on");
+    verifiedBtn.textContent = "Verified ✓";
+    verifiedBtn.style.pointerEvents = "auto";
+    nextOverlay.style.display = 'flex';
+  }
+
+  function finishFail(){
+    running = false;
+    statusHint.textContent = "Time up. Click Start to try again.";
+    clearPieces();
+    verifiedBtn.classList.remove("on");
+    verifiedBtn.textContent = "Verified";
+    setMissingActive(false);
+  }
+
+  function tick(){
+    if (!running) return;
+    const now = performance.now();
+    const elapsed = now - startTS;
+    const remaining = TIME_LIMIT_MS - elapsed;
+    timePill.textContent = fmtTime(remaining);
+
+    if (remaining <= 0){
+      timePill.textContent = "00:00.00";
+      finishFail();
+      return;
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function hideIntroAfter3s(){
+    setTimeout(() => {
+      introOverlay.classList.add("hide");
+      setTimeout(() => {
+        introOverlay.style.display = "none";
+        document.body.classList.remove("gated");
+        introOverlay.setAttribute("aria-hidden","true");
+      }, 450);
+    }, 3000);
+  }
+
+  function init(){
+    // fit and build a blank board (no image) initially
+    fitToViewport();
+    buildBoardGrid();
+
+    hideIntroAfter3s();
+
+    document.addEventListener("mousedown", onMouseDown);
+
+    startBtn.addEventListener("click", async () => {
+      // hide tray prompt the moment the game starts
+      trayPrompt.classList.add("hide");
+
+      verifiedBtn.classList.remove("on");
+      verifiedBtn.textContent = "Verified";
+      statusHint.textContent = "Go!";
+
+      // lock scaling for the run (avoid resizing mid-round)
+      fitToViewport();
+      buildBoardGrid();
+
+      allMissingSequence.length = 0;
+      allMissingSequence.push(...pickSequence10Unique());
+
+      running = true;
+      startTS = performance.now();
+      await startRound(0);
+      requestAnimationFrame(tick);
+    });
+
+    verifiedBtn.addEventListener("click", () => {
+      if (!verifiedBtn.classList.contains("on")) return;
+      statusHint.textContent = "Next step can be triggered here.";
+      window.isHuman = true;
+    });
+
+    // next captcha popup buttons
+    nextYes.addEventListener('click', () => {
+      window.location.href = 'crossword_captcha.html';
+    });
+
+    nextNo.addEventListener('click', () => {
+      nextOverlay.style.display = 'none';
+      memeOverlay.style.display = 'flex';
+      memeVideo.currentTime = 0;
+      memeVideo.play().catch(()=>{});
+    });
+
+    // meme popup behaviour
+    memeClose.addEventListener('click', () => {
+      memeVideo.pause();
+      memeOverlay.style.display = 'none';
+      nextOverlay.style.display = 'flex';
+    });
+
+    memeOverlay.addEventListener('click', (e) => {
+      if(e.target === memeOverlay){
+        memeVideo.pause();
+        memeOverlay.style.display = 'none';
+        nextOverlay.style.display = 'flex';
+      }
+    });
+
+    memeVideo.addEventListener('ended', () => {
+      memeOverlay.style.display = 'none';
+      nextOverlay.style.display = 'flex';
+    });
+
+    // resize: refit only when not running (no gameplay change mid-run)
+    window.addEventListener("resize", () => {
+      if (running) return;
+      fitToViewport();
+      buildBoardGrid();
+    });
+  }
+
+  // no preload at boot (we want blank until Start)
+  init();
+})();
+</script>
+</body>
+</html>

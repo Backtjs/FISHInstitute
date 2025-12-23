@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FISH Institute - Vitals Widget Test</title>
+
+  <style>
+    /* Reset & base */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f0f4f8;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Card base */
+    .card {
+      background: #FFFBF5;
+      border: 1px solid #D4B896;
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(62, 39, 35, 0.12);
+      padding: 20px;
+      max-width: 420px;
+      width: 100%;
+      overflow: hidden;
+    }
+
+    /* Widget top row: title + navigation */
+    .vitals__top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .vitals__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6F4E37;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .vitals__nav {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* Arrow buttons - coffee themed */
+    .vitals__arrow {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid #6F4E37;
+      background: #ffffff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      color: #6F4E37;
+      font-size: 18px;
+      font-weight: 600;
+      padding: 0;
+      line-height: 1;
+      user-select: none;
+    }
+
+    .vitals__arrow:hover {
+      background: #6F4E37;
+      color: #ffffff;
+      transform: scale(1.05);
+    }
+
+    .vitals__arrow:active { transform: scale(0.98); }
+
+    .vitals__arrow:focus-visible {
+      outline: 3px solid rgba(111, 78, 55, 0.35);
+      outline-offset: 2px;
+    }
+
+    /* Content wrapper for slide animation */
+    .vitals__content {
+      position: relative;
+      overflow: hidden;
+    }
+
+    .vitals__slide {
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .vitals__slide.slide-out-left { animation: slideOutLeft 0.3s ease forwards; }
+    .vitals__slide.slide-out-right { animation: slideOutRight 0.3s ease forwards; }
+    .vitals__slide.slide-in-left { animation: slideInLeft 0.3s ease forwards; }
+    .vitals__slide.slide-in-right { animation: slideInRight 0.3s ease forwards; }
+
+    @keyframes slideOutLeft {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(-20px); opacity: 0; }
+    }
+
+    @keyframes slideOutRight {
+      from { transform: translateX(0); opacity: 1; }
+      to { transform: translateX(20px); opacity: 0; }
+    }
+
+    @keyframes slideInLeft {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes slideInRight {
+      from { transform: translateX(-20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    /* Header row: label + value */
+    .vitals__header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .vitals__label {
+      font-weight: 700;
+      font-size: 20px;
+      color: #3E2723;
+      letter-spacing: 0.2px;
+    }
+
+    .vitals__value {
+      font-weight: 800;
+      font-size: 32px;
+      color: #3E2723;
+      line-height: 1;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .vitals__unit {
+      font-weight: 700;
+      font-size: 16px;
+      color: #6F4E37;
+      margin-left: 4px;
+    }
+
+    /* Note box */
+    .vitals__note {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: #4A2C2A;
+      background: #F5E6D3;
+      border: 1px solid #D4B896;
+      border-radius: 10px;
+      padding: 14px 16px;
+      min-height: 68px;
+    }
+
+    /* Pagination dots */
+    .vitals__dots {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .vitals__dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      border: 1.5px solid #A67C52;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+
+    .vitals__dot:hover { border-color: #6F4E37; }
+
+    .vitals__dot[aria-selected="true"] {
+      background: #6F4E37;
+      border-color: #6F4E37;
+      transform: scale(1.2);
+    }
+
+    .vitals__dot:focus-visible {
+      outline: 3px solid rgba(111, 78, 55, 0.35);
+      outline-offset: 3px;
+    }
+  </style>
+</head>
+
+<body>
+  <section class="card vitals" aria-label="Today's vitals">
+    <div class="vitals__top">
+      <h3 class="vitals__title">Today's Vitals</h3>
+
+      <div class="vitals__nav">
+        <button class="vitals__arrow" id="prevBtn" type="button" aria-label="Previous vital">‹</button>
+        <div class="vitals__dots" id="vitalsDots" role="tablist" aria-label="Vitals pages"></div>
+        <button class="vitals__arrow" id="nextBtn" type="button" aria-label="Next vital">›</button>
+      </div>
+    </div>
+
+    <div class="vitals__content">
+      <div class="vitals__slide" id="vitalsSlide">
+        <div class="vitals__header">
+          <div class="vitals__label" id="vitalLabel">Mood</div>
+          <div class="vitals__value" id="vitalValue">5<span class="vitals__unit">/10</span></div>
+        </div>
+
+        <div class="vitals__note" id="vitalNote">
+          Advise: Subject tries everything, yet coffee improves mood in the end.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    const vitalsSlides = [
+      {
+        label: "Mood",
+        value: "5",
+        unit: "/10",
+        note: "Advise: Subject tries everything, yet coffee improves mood in the end."
+      },
+      {
+        label: "Energy",
+        value: "42",
+        unit: "%",
+        note: "Info: Subject's energy generally on the sleepy end; easily affected by external factors."
+      },
+      {
+        label: "Caffeine level",
+        value: "2",
+        unit: " cups",
+        note: "⚠ Alert: Subject can be lured into a strange van if it smells of good coffee."
+      },
+      {
+        label: "Headache",
+        value: "Moderate",
+        unit: "",
+        note: "Info: Subject can be easily stimulated. Advise: Be wary of your stupid actions."
+      },
+      {
+        label: "Social energy",
+        value: "10",
+        unit: "%",
+        note: "Clinical note: Subject has a serious case of what it calls 'FOBI' (Fear of Being Interacted-with)."
+      },
+      {
+        label: "Boredness",
+        value: "Very High",
+        unit: "",
+        note: "Subject claims boring is comfortable. No intervention required."
+      },
+      {
+        label: "Hunger index",
+        value: "20",
+        unit: "%",
+        note: "Observation: Usually peaks at night after good conversation. Plan snack protocol accordingly."
+      },
+      {
+        label: "Sleepiness",
+        value: "99.99",
+        unit: "%",
+        note: "⚠ Alert: Subject prefers sleep as best procrastination method. Pre-sleep schedule enforcement recommended."
+      },
+      {
+        label: "Mood swings",
+        value: "Low",
+        unit: "",
+        note: "Advise: Subject can go silent all of a sudden. Make sure you disturb it during deep focus to test stability."
+      }
+    ];
+
+    const labelEl = document.getElementById("vitalLabel");
+    const valueEl = document.getElementById("vitalValue");
+    const noteEl = document.getElementById("vitalNote");
+    const slideEl = document.getElementById("vitalsSlide");
+    const dotsWrap = document.getElementById("vitalsDots");
+    const prevBtn = document.getElementById("prevBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    let activeIndex = 0;
+    let autoRotateTimer = null;
+    let isAnimating = false;
+
+    function renderDots() {
+      dotsWrap.innerHTML = "";
+
+      vitalsSlides.forEach((s, i) => {
+        const btn = document.createElement("button");
+        btn.className = "vitals__dot";
+        btn.type = "button";
+        btn.setAttribute("role", "tab");
+        btn.setAttribute("aria-label", `Vital ${i + 1}: ${s.label}`);
+        btn.setAttribute("aria-selected", i === activeIndex ? "true" : "false");
+        btn.tabIndex = i === activeIndex ? 0 : -1;
+
+        btn.addEventListener("click", () => {
+          if (isAnimating || i === activeIndex) return;
+          resetAutoRotate();
+          setSlide(i, i > activeIndex ? "next" : "prev");
+        });
+
+        dotsWrap.appendChild(btn);
+      });
+    }
+
+    function updateDots() {
+      [...dotsWrap.children].forEach((dot, idx) => {
+        dot.setAttribute("aria-selected", idx === activeIndex ? "true" : "false");
+        dot.tabIndex = idx === activeIndex ? 0 : -1;
+      });
+    }
+
+    function setSlide(i, direction = "next") {
+      if (isAnimating) return;
+      isAnimating = true;
+
+      const outClass = direction === "next" ? "slide-out-left" : "slide-out-right";
+      const inClass = direction === "next" ? "slide-in-left" : "slide-in-right";
+
+      slideEl.classList.add(outClass);
+
+      setTimeout(() => {
+        activeIndex = i;
+        const s = vitalsSlides[activeIndex];
+
+        labelEl.textContent = s.label;
+        valueEl.innerHTML = `${s.value}<span class="vitals__unit">${s.unit}</span>`;
+        noteEl.textContent = s.note;
+
+        updateDots();
+
+        slideEl.classList.remove(outClass);
+        slideEl.classList.add(inClass);
+
+        setTimeout(() => {
+          slideEl.classList.remove(inClass);
+          isAnimating = false;
+        }, 300);
+      }, 300);
+    }
+
+    function nextSlide() {
+      setSlide((activeIndex + 1) % vitalsSlides.length, "next");
+    }
+
+    function prevSlide() {
+      setSlide((activeIndex - 1 + vitalsSlides.length) % vitalsSlides.length, "prev");
+    }
+
+    function startAutoRotate() {
+      autoRotateTimer = setInterval(nextSlide, 6900);
+    }
+
+    function resetAutoRotate() {
+      clearInterval(autoRotateTimer);
+      startAutoRotate();
+    }
+
+    nextBtn.addEventListener("click", () => {
+      if (isAnimating) return;
+      resetAutoRotate();
+      nextSlide();
+    });
+
+    prevBtn.addEventListener("click", () => {
+      if (isAnimating) return;
+      resetAutoRotate();
+      prevSlide();
+    });
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        if (isAnimating) return;
+        resetAutoRotate();
+        prevSlide();
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        if (isAnimating) return;
+        resetAutoRotate();
+        nextSlide();
+      }
+    });
+
+    renderDots();
+    startAutoRotate();
+  </script>
+</body>
+</html>

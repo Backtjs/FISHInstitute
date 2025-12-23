@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Crossword CAPTCHA – Branching</title>
+
+<style>
+  :root{
+    --cream:#FFFBF5;
+    --latte:#F5E6D3;
+    --tan:#D4B896;
+    --coffee:#6F4E37;
+    --dark:#3E2723;
+
+    --rows: 12;
+    --cols: 12;
+    --cellGap: 2px;
+    --cell: 34px;
+
+    --ease-out: cubic-bezier(.16,1,.3,1);
+    --ease-inout: cubic-bezier(.4,0,.2,1);
+  }
+
+  *{ box-sizing:border-box; user-select:none; }
+  html, body{ height:100%; }
+
+  body{
+    margin:0;
+    background: radial-gradient(circle at top, #3d2b23 0, #1a140f 55%, #0e0906 100%);
+    font-family: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    color:var(--dark);
+    overflow-x:hidden;
+  }
+
+  /* Ambient background (subtle) */
+  body::before,
+  body::after{
+    content:"";
+    position:fixed;
+    inset:-20%;
+    pointer-events:none;
+    opacity:.18;
+    filter: blur(30px);
+    background:
+      radial-gradient(circle at 20% 25%, rgba(166,124,82,.55), transparent 38%),
+      radial-gradient(circle at 80% 35%, rgba(111,78,55,.50), transparent 40%),
+      radial-gradient(circle at 45% 80%, rgba(212,184,150,.55), transparent 45%);
+    animation: bgDrift 14s var(--ease-inout) infinite alternate;
+  }
+  body::after{
+    opacity:.10;
+    filter: blur(40px);
+    animation-duration: 18s;
+    transform: translate3d(0,0,0);
+  }
+  @keyframes bgDrift{
+    from{ transform: translate3d(-1.2%, -0.6%, 0); }
+    to  { transform: translate3d( 1.2%,  0.8%, 0); }
+  }
+
+  .app{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:18px;
+  }
+
+  /* Card entrance */
+  .card{
+    width:min(900px, 98vw);
+    background:var(--cream);
+    border:2px solid var(--tan);
+    border-radius:22px;
+    box-shadow:0 22px 60px rgba(0,0,0,0.30);
+    padding:16px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    position:relative;
+    overflow:hidden;
+    opacity:0;
+    animation: cardIn 700ms var(--ease-out) 1 forwards;
+  }
+  .card::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.62), rgba(255,255,255,0) 22%),
+      radial-gradient(120% 110% at 10% 10%, rgba(255,255,255,.45), rgba(255,255,255,0) 55%);
+    opacity:.75;
+  }
+  .card::after{
+    content:"";
+    position:absolute;
+    inset:0;
+    pointer-events:none;
+    opacity:.06;
+    background-image:
+      radial-gradient(rgba(0,0,0,.9) 1px, transparent 1px);
+    background-size: 6px 6px;
+    mix-blend-mode:multiply;
+  }
+
+  @keyframes cardIn{
+    0%{ opacity:0; transform: translateY(10px); }
+    100%{ opacity:1; transform: translateY(0); }
+  }
+
+  /* Top section polish */
+  .top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:flex-start;
+    position:relative;
+    z-index:1;
+    padding-bottom:10px;
+    border-bottom:1px solid rgba(111,78,55,0.18);
+  }
+  .title{ margin:0; font-weight:950; font-size:16px; letter-spacing:.01em; }
+  .subtitle{ margin:6px 0 0; font-size:12px; color:#8a6a4c; font-weight:750; }
+
+  .pillRow{ display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .pill{
+    display:inline-flex; align-items:center; gap:8px;
+    padding:8px 12px; border-radius:999px;
+    border:1px solid var(--tan); background:#fff; color:var(--coffee);
+    font-size:12px; font-weight:850;
+    box-shadow: 0 10px 20px rgba(0,0,0,.08);
+    transition: box-shadow 220ms var(--ease-out), transform 220ms var(--ease-out);
+  }
+  .pill:hover{ box-shadow: 0 14px 28px rgba(0,0,0,.10); transform: translateY(-1px); }
+  .dot{ width:8px;height:8px;border-radius:50%; background:var(--coffee);opacity:.85; }
+
+  .pill.pulse-good{ animation: pillGood 650ms var(--ease-out) 1; }
+  .pill.pulse-bad{  animation: pillBad  650ms var(--ease-out) 1; }
+  @keyframes pillGood{
+    0%{ box-shadow: 0 0 0 0 rgba(46,125,50,.0), 0 10px 20px rgba(0,0,0,.08); }
+    50%{ box-shadow: 0 0 0 6px rgba(46,125,50,.20), 0 18px 34px rgba(0,0,0,.12); }
+    100%{ box-shadow: 0 0 0 0 rgba(46,125,50,.0), 0 10px 20px rgba(0,0,0,.08); }
+  }
+  @keyframes pillBad{
+    0%{ transform: translateX(0); }
+    20%{ transform: translateX(-3px); }
+    40%{ transform: translateX(3px); }
+    60%{ transform: translateX(-2px); }
+    80%{ transform: translateX(2px); }
+    100%{ transform: translateX(0); }
+  }
+
+  .layout{
+    display:grid;
+    grid-template-columns: 60% 40%;
+    gap:16px;
+    position:relative;
+    z-index:1;
+  }
+
+  .gridWrap{
+    border-radius:16px;
+    border:2px solid rgba(111,78,55,0.28);
+    background:linear-gradient(135deg,#f7efe3,#efe1cf);
+    padding:12px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.6);
+  }
+
+  .cwGrid{
+    display:grid;
+    gap:var(--cellGap);
+    grid-template-columns:repeat(var(--cols), var(--cell));
+    grid-template-rows:repeat(var(--rows), var(--cell));
+  }
+
+  .cell{
+    width:var(--cell);
+    height:var(--cell);
+    border-radius:10px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-weight:950;
+    font-size:16px;
+    color:var(--dark);
+    background:rgba(255,255,255,0.92);
+    border:1px solid rgba(111,78,55,0.22);
+    cursor:default;
+    transition: background 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  }
+
+  .cell:not(.blank):hover{
+    border-color: rgba(111,78,55,.40);
+    box-shadow: 0 8px 14px rgba(0,0,0,.08);
+    background: rgba(255,255,255,.98);
+  }
+
+  .cell.blank{
+    background:transparent;
+    border-color:transparent;
+    pointer-events:none;
+    box-shadow:none;
+  }
+
+  /* index cells */
+  .cell.index{
+    background:#e4c9a3;
+    color:#3b261a;
+    box-shadow:0 0 0 1px rgba(62,39,35,0.18);
+    animation: indexBlink 1.6s ease-in-out infinite;
+  }
+  @keyframes indexBlink{
+    0%,100%{ box-shadow:0 0 0 0 rgba(111,78,55,0.35); }
+    50% { box-shadow:0 0 0 6px rgba(111,78,55,0.05); }
+  }
+
+  /* candidate direction cells */
+  .cell.choice{
+    animation: choiceBlink 1.6s ease-in-out infinite;
+    border-color:rgba(111,78,55,0.55);
+    box-shadow: 0 0 0 2px rgba(111,78,55,.10);
+  }
+  @keyframes choiceBlink{
+    0%,100%{ background:rgba(255,255,255,0.98); }
+    50% { background:#f0e0ca; }
+  }
+
+  /* solved letters */
+  .cell.solved{
+    background:#c49c72;
+    color:#fffaf5;
+    border-color:#8a5f39;
+    box-shadow:0 0 0 1px rgba(62,39,35,0.35);
+  }
+  /* hinted letter (single cell reveal) */
+  .cell.hinted{
+    background: linear-gradient(180deg, #fff, #fff2e4);
+    border-color: rgba(111,78,55,.45);
+    box-shadow: 0 0 0 3px rgba(111,78,55,.10);
+    animation: hintGlow 900ms var(--ease-out) 1;
+  }
+  @keyframes hintGlow{
+    0%{ box-shadow: 0 0 0 0 rgba(111,78,55,.0); }
+    55%{ box-shadow: 0 0 0 8px rgba(111,78,55,.16); }
+    100%{ box-shadow: 0 0 0 3px rgba(111,78,55,.10); }
+  }
+
+  .sidePanel{
+    border-radius:16px;
+    border:2px solid rgba(111,78,55,0.28);
+    background:linear-gradient(180deg,#fff,var(--latte));
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.65);
+  }
+
+  .sideTitle{
+    font-size:12px;
+    font-weight:950;
+    color:var(--coffee);
+    letter-spacing:.08em;
+    text-transform:uppercase;
+  }
+
+  /* Clue numbering + polish */
+  .clueList{
+    margin:0;
+    padding-left:0;
+    list-style:none;
+    font-size:12px;
+    color:#4b332c;
+    font-weight:850;
+    display:flex;
+    flex-direction:column;
+    gap:7px;
+    counter-reset: clue;
+  }
+  .clueItem{
+    position:relative;
+    padding:6px 8px 6px 36px;
+    cursor:pointer;
+    border-radius:12px;
+    border:1px solid rgba(111,78,55,.10);
+    background: rgba(255,255,255,.55);
+    transition: background 160ms var(--ease-out), border-color 160ms var(--ease-out), transform 160ms var(--ease-out);
+  }
+  .clueItem::before{
+    counter-increment: clue;
+    content: counter(clue);
+    position:absolute;
+    left:10px;
+    top:50%;
+    transform: translateY(-50%);
+    width:18px; height:18px;
+    border-radius:6px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:11px;
+    font-weight:950;
+    color: #3b261a;
+    background: rgba(228,201,163,.95);
+    border:1px solid rgba(111,78,55,.16);
+  }
+  .clueItem:hover{
+    color:var(--coffee);
+    background: rgba(255,255,255,.80);
+    border-color: rgba(111,78,55,.22);
+    transform: translateY(-1px);
+  }
+
+  .clueItem.done{
+    opacity:0.50;
+  }
+  .clueItem.done::after{
+    content:"";
+    position:absolute;
+    left:34px;
+    right:10px;
+    top:50%;
+    height:2px;
+    background:rgba(62,39,35,0.85);
+    transform:translateY(-50%);
+    width:0;
+    animation: clueStrike 0.65s ease-out forwards;
+  }
+  @keyframes clueStrike{
+    from{ width:0; }
+    to{ width: calc(100% - 44px); }
+  }
+
+  .inputRow{
+    display:flex;
+    gap:8px;
+    align-items:center;
+    margin-top:4px;
+  }
+  .inputRow label{
+    font-size:11px;
+    color:#7a5a41;
+    font-weight:850;
+  }
+  .wordInput{
+    flex:1;
+    border-radius:999px;
+    border:1px solid rgba(111,78,55,0.45);
+    padding:8px 11px;
+    font-size:13px;
+    outline:none;
+    background: rgba(255,255,255,.92);
+    transition: box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  }
+  .wordInput:focus{
+    border-color:var(--coffee);
+    box-shadow:0 0 0 3px rgba(111,78,55,0.18);
+  }
+  .btnSmall{
+    border:none;
+    border-radius:999px;
+    padding:8px 12px;
+    font-size:11px;
+    font-weight:900;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    cursor:pointer;
+    background:linear-gradient(135deg,var(--coffee),var(--dark));
+    color:#fff;
+    box-shadow: 0 12px 22px rgba(0,0,0,.12);
+    transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out);
+  }
+  .btnSmall:active{ transform: translateY(1px); box-shadow: 0 8px 16px rgba(0,0,0,.10); }
+
+  .footer{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:8px;
+    font-size:12px;
+    color:#8a6a4c;
+    font-weight:850;
+    position:relative;
+    z-index:1;
+  }
+  .btnRow{ display:flex; gap:10px; }
+
+  .btn{
+    padding:9px 14px;
+    border-radius:999px;
+    border:1px solid rgba(111,78,55,0.35);
+    background:#fff;
+    color:var(--coffee);
+    font-weight:950;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    font-size:12px;
+    cursor:pointer;
+    box-shadow: 0 12px 22px rgba(0,0,0,.08);
+    transition: transform 160ms var(--ease-out), box-shadow 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  }
+  .btn:hover{ box-shadow: 0 16px 30px rgba(0,0,0,.10); transform: translateY(-1px); }
+  .btn:active{ transform: translateY(1px); }
+  .btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .verified{ opacity:.45; pointer-events:none; }
+  .verified.on{
+    opacity:1;
+    border-color:rgba(46,125,50,0.35);
+    color:#2e7d32;
+    pointer-events:auto;
+  }
+
+  .cell.dimmed{ opacity:0.18; }
+  .cell.highlightPath{
+    opacity:1;
+    box-shadow:0 0 0 2px rgba(62,39,35,0.20);
+    border-color: rgba(62,39,35,0.25);
+  }
+
+  /* ---- Overlay popups (intro + completion) ---- */
+  .overlay{
+    position:fixed;
+    inset:0;
+    z-index:999;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    padding:16px;
+    pointer-events:auto;
+  }
+  .overlay.is-open{ display:flex; }
+  .overlay__backdrop{
+    position:absolute;
+    inset:0;
+    background: rgba(10,7,5,.62);
+    backdrop-filter: blur(4px);
+    opacity:0;
+    transition: opacity 520ms var(--ease-out);
+  }
+  .overlay.is-open .overlay__backdrop{ opacity:1; }
+
+  .overlay__card{
+    position:relative;
+    width:min(680px, 92vw);
+    border-radius: 26px;
+    border:1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.94);
+    box-shadow: 0 28px 90px rgba(0,0,0,.32);
+    padding: 16px 16px 14px;
+    opacity:0;
+    transform: translateY(10px);
+    transition: opacity 520ms var(--ease-out), transform 520ms var(--ease-out);
+  }
+  .overlay.is-open .overlay__card{
+    opacity:1;
+    transform: translateY(0);
+  }
+  .overlay__kicker{
+    font-size:11px;
+    font-weight:950;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    opacity:.70;
+    margin: 0 0 6px 0;
+  }
+  .overlay__title{
+    margin:0 0 10px 0;
+    font-size:15px;
+    font-weight:980;
+    letter-spacing:.01em;
+    line-height:1.35;
+    color: var(--dark);
+  }
+  .overlay__actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top: 8px;
+  }
+  .overlayBtn{
+    border-radius:999px;
+    border:1px solid rgba(0,0,0,.14);
+    background:#fff;
+    padding:10px 14px;
+    font-size:12px;
+    font-weight:980;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    cursor:pointer;
+    box-shadow: 0 14px 28px rgba(0,0,0,.12);
+  }
+  .overlayBtn.primary{
+    border-color: rgba(111,78,55,.28);
+    background: linear-gradient(180deg, #fff, #fff6ee);
+    color: var(--coffee);
+  }
+
+  /* Intro overlay auto-hide animation hook */
+  .overlay.is-closing .overlay__backdrop{ opacity:0; }
+  .overlay.is-closing .overlay__card{ opacity:0; transform: translateY(10px); }
+
+  /* ---- Hint FX (tile drop + dirt) ---- */
+  .hintFx{
+    position:fixed;
+    inset:0;
+    pointer-events:none;
+    z-index: 1200;
+  }
+  .hintFx__tile{
+    position:absolute;
+    left:50%;
+    top:-80px;
+    width:62px;
+    height:62px;
+    border-radius:16px;
+    transform: translateX(-50%);
+    background: linear-gradient(180deg, #fff, #f6e6d3);
+    border:1px solid rgba(111,78,55,.25);
+    box-shadow: 0 20px 50px rgba(0,0,0,.22);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color: var(--coffee);
+    font-weight:1000;
+    letter-spacing:.04em;
+    animation: tileDrop 820ms var(--ease-out) 1 forwards;
+  }
+  @keyframes tileDrop{
+    0%{ top:-90px; }
+    70%{ top:55%; }
+    85%{ top:58%; }
+    100%{ top:56.5%; }
+  }
+
+  .hintFx__dust{
+    position:absolute;
+    left:50%;
+    top:56.5%;
+    width:14px;
+    height:14px;
+    border-radius:999px;
+    background: rgba(212,184,150,.75);
+    filter: blur(.2px);
+    opacity:0;
+    transform: translate(-50%,-50%) scale(.4);
+    animation: dustPuff 820ms var(--ease-out) 1 forwards;
+  }
+  @keyframes dustPuff{
+    0%{ opacity:0; transform: translate(-50%,-50%) scale(.3); }
+    72%{ opacity:0; transform: translate(-50%,-50%) scale(.3); }
+    85%{ opacity:1; transform: translate(-50%,-50%) scale(1.45); }
+    100%{ opacity:0; transform: translate(-50%,-50%) scale(2.35); }
+  }
+
+  /* Multiple dust particles via nth-child offsets */
+  .hintFx__dust:nth-child(2){ margin-left:-34px; margin-top: 10px; }
+  .hintFx__dust:nth-child(3){ margin-left: 22px; margin-top: 16px; }
+  .hintFx__dust:nth-child(4){ margin-left:-10px; margin-top:-6px; }
+  .hintFx__dust:nth-child(5){ margin-left: 44px; margin-top: 2px; }
+  .hintFx__dust:nth-child(6){ margin-left:-52px; margin-top: 2px; }
+
+  /* ---- Reduced motion ---- */
+  @media (prefers-reduced-motion: reduce){
+    body::before, body::after{ animation:none !important; }
+    .card{ animation:none !important; opacity:1; transform:none !important; }
+    .overlay__backdrop, .overlay__card{ transition:none !important; }
+    .cell, .pill, .btn, .btnSmall, .clueItem{ transition:none !important; }
+    .hintFx__tile, .hintFx__dust{ animation:none !important; }
+  }
+</style>
+</head>
+
+<body>
+  <!-- Intro overlay (auto closes after 4.69s) -->
+  <div class="overlay" id="introOverlay" aria-hidden="true">
+    <div class="overlay__backdrop"></div>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-label="Captcha progress">
+      <div class="overlay__kicker">Security check</div>
+      <div class="overlay__title">Complete 2 more captchas to successfully access the dashboard</div>
+    </div>
+  </div>
+
+  <!-- Completion overlay -->
+  <div class="overlay" id="doneOverlay" aria-hidden="true">
+    <div class="overlay__backdrop"></div>
+    <div class="overlay__card" role="dialog" aria-modal="true" aria-label="Next captcha">
+      <div class="overlay__kicker">Verified</div>
+      <div class="overlay__title">Ready for your last captcha?</div>
+      <div class="overlay__actions">
+        <button class="overlayBtn primary" id="doneYes" type="button">Yes!</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="card" id="cardRoot">
+      <div class="top">
+        <div>
+          <h1 class="title">Crossword verification</h1>
+          <p class="subtitle">
+            Click a glowing letter, choose a direction, then type the full word. All correct words verify you.
+          </p>
+        </div>
+        <div class="pillRow">
+          <div class="pill" id="progressPillWrap"><span class="dot"></span><span id="progressPill">0/8 solved</span></div>
+          <div class="pill" id="statusPillWrap"><span class="dot"></span><span id="statusPill">Ready</span></div>
+        </div>
+      </div>
+
+      <div class="layout">
+        <div class="gridWrap">
+          <div class="cwGrid" id="cwGrid"></div>
+        </div>
+
+        <div class="sidePanel">
+          <div class="sideTitle">Clues</div>
+          <ol class="clueList" id="clueList"></ol>
+
+          <div class="sideTitle" style="margin-top:6px;">Answer entry</div>
+          <div style="font-size:11px;color:#7a5a41;font-weight:750;">
+            Click a glowing starting letter, then click either right or down cell. Type the word that goes that way (no spaces).
+          </div>
+          <div class="inputRow">
+            <label id="entryLabel">No cell selected</label>
+          </div>
+          <div class="inputRow">
+            <input id="wordInput" class="wordInput" placeholder="type word and press Enter" disabled />
+            <button class="btnSmall" id="submitBtn" disabled>OK</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div id="hintText">Solve all 8 words to unlock the portal.</div>
+        <div class="btnRow">
+          <button class="btn verified" id="verifiedBtn">Verified</button>
+          <button class="btn" id="hintBtn">Hint</button>
+          <button class="btn" id="resetBtn">Reset</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+(() => {
+  const reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const WORDS = [
+    { key:"DECEMBER", clue:"What was the month Snowy took birth in?" },
+    { key:"TERRACE",  clue:"What is his favorite place in the house?" },
+    { key:"FELIX",    clue:"What is his favorite wet food?" },
+    { key:"FOOD",     clue:"What is the first thing he begs for in the morning?" },
+    { key:"FROCK",    clue:"What is the dress he hates?" },
+    { key:"PINK",     clue:"What was his first frock colour?" },
+    { key:"NOBALLS",  clue:"Stand-up name for Snowy? (Hint: Gaurav Kapoor…)" },
+    { key:"BHURI",    clue:"What does the househelp call Snowy?" }
+  ];
+
+  const ROWS = 12, COLS = 12;
+  const cellKey = (r,c)=>`${r},${c}`;
+
+  const PLACEMENTS = [
+    { word:"DECEMBER", r:6, c:2, dir:"across" },
+    { word:"FELIX",    r:5, c:5, dir:"down"   },
+    { word:"TERRACE",  r:5, c:8, dir:"down"   },
+    { word:"FOOD",     r:3, c:2, dir:"down"   },
+    { word:"FROCK",    r:3, c:2, dir:"across" },
+    { word:"PINK",     r:0, c:6, dir:"down"   },
+    { word:"NOBALLS",  r:2, c:6, dir:"across" },
+    { word:"BHURI",    r:1, c:2, dir:"across" }
+  ];
+
+  const cwGrid   = document.getElementById("cwGrid");
+  const clueList = document.getElementById("clueList");
+  const entryLabel = document.getElementById("entryLabel");
+  const wordInput  = document.getElementById("wordInput");
+  const submitBtn  = document.getElementById("submitBtn");
+  const progressPill = document.getElementById("progressPill");
+  const statusPill   = document.getElementById("statusPill");
+  const hintText     = document.getElementById("hintText");
+  const verifiedBtn  = document.getElementById("verifiedBtn");
+  const resetBtn     = document.getElementById("resetBtn");
+  const hintBtn      = document.getElementById("hintBtn");
+
+  const progressPillWrap = document.getElementById("progressPillWrap");
+  const statusPillWrap   = document.getElementById("statusPillWrap");
+
+  const introOverlay = document.getElementById("introOverlay");
+  const doneOverlay  = document.getElementById("doneOverlay");
+  const doneYes      = document.getElementById("doneYes");
+
+  const solution  = new Map();   // "r,c" -> letter
+  const wordCells = new Map();   // word -> [keys]
+  const SOLVED    = new Set();
+  const cellEls   = new Map();   // "r,c" -> div
+  const clueEls   = new Map();   // wordKey -> <li>
+  const HINTED    = new Set();   // "r,c" letters revealed by hint
+
+  let activeIndex = null; // {r,c,letter}
+  let activeDir   = null; // "across"/"down"
+  let activeWordMeta = null;
+  let activeCells = [];
+
+  function showOverlay(el){
+    el.classList.add("is-open");
+    el.classList.remove("is-closing");
+    el.setAttribute("aria-hidden","false");
+  }
+  function closeOverlay(el){
+    el.classList.add("is-closing");
+    setTimeout(() => {
+      el.classList.remove("is-open","is-closing");
+      el.setAttribute("aria-hidden","true");
+    }, reduceMotion ? 0 : 520);
+  }
+
+  // Intro message: fade in, then vanish after 4.69s
+  function runIntroGate(){
+    showOverlay(introOverlay);
+    setTimeout(() => closeOverlay(introOverlay), 4690);
+  }
+
+  function buildSolution(){
+    solution.clear();
+    wordCells.clear();
+    for (const p of PLACEMENTS){
+      const letters = p.word.split("");
+      const cells = [];
+      for (let i=0;i<letters.length;i++){
+        const r = p.r + (p.dir==="down"?i:0);
+        const c = p.c + (p.dir==="across"?i:0);
+        if (r<0||c<0||r>=ROWS||c>=COLS) continue;
+        const k = cellKey(r,c);
+        const L = letters[i];
+        if (solution.has(k) && solution.get(k)!==L){
+          console.warn("conflict at", k, solution.get(k), L);
+        } else {
+          solution.set(k,L);
+        }
+        cells.push(k);
+      }
+      wordCells.set(p.word,cells);
+    }
+  }
+
+  function renderClues(){
+    clueList.innerHTML = "";
+    clueEls.clear();
+    WORDS.forEach(w=>{
+      const li = document.createElement("li");
+      li.textContent = w.clue;
+      li.className = "clueItem";
+      li.dataset.word = w.key;
+      clueList.appendChild(li);
+      clueEls.set(w.key, li);
+    });
+
+    clueList.addEventListener("mouseover", e=>{
+      const li = e.target.closest(".clueItem");
+      if (!li) return;
+      const key = li.dataset.word;
+      highlightWordPath(key);
+    });
+    clueList.addEventListener("mouseout", e=>{
+      const li = e.target.closest(".clueItem");
+      if (!li) { clearHighlight(); return; }
+      if (!li.contains(e.relatedTarget)) clearHighlight();
+    });
+  }
+
+  function renderGrid(){
+    cwGrid.innerHTML = "";
+    cellEls.clear();
+    for (let r=0;r<ROWS;r++){
+      for (let c=0;c<COLS;c++){
+        const k = cellKey(r,c);
+        const has = solution.has(k);
+        const el = document.createElement("div");
+        el.className = "cell" + (has ? "" : " blank");
+        if (has){
+          el.dataset.r = r;
+          el.dataset.c = c;
+          el.textContent = "";
+        }
+        cwGrid.appendChild(el);
+        cellEls.set(k,el);
+      }
+    }
+    markIndexCells();
+    refreshSolvedVisuals();
+  }
+
+  function markIndexCells(){
+    cellEls.forEach(el => el.classList.remove("index","choice"));
+    for (const p of PLACEMENTS){
+      const k = cellKey(p.r, p.c);
+      const el = cellEls.get(k);
+      if (el) el.classList.add("index");
+    }
+  }
+
+  function clearChoices(){
+    cellEls.forEach(el => el.classList.remove("choice"));
+  }
+
+  function refreshSolvedVisuals(){
+    cellEls.forEach((el,k) => {
+      if (!solution.has(k)) return;
+      el.classList.remove("solved","hinted");
+      // restore hinted letters later
+      el.textContent = "";
+    });
+
+    for (const w of SOLVED){
+      const cells = wordCells.get(w) || [];
+      cells.forEach(k=>{
+        const el = cellEls.get(k);
+        if (el){
+          el.textContent = solution.get(k);
+          el.classList.add("solved");
+          el.classList.remove("hinted");
+          HINTED.delete(k);
+        }
+      });
+      const li = clueEls.get(w);
+      if (li) li.classList.add("done");
+    }
+
+    // re-apply hinted letters that are not in solved words
+    HINTED.forEach(k=>{
+      const el = cellEls.get(k);
+      if (!el) return;
+      if (el.classList.contains("solved")) return;
+      el.textContent = solution.get(k);
+      el.classList.add("hinted");
+    });
+  }
+
+  function updateProgress(){
+    progressPill.textContent = `${SOLVED.size}/${WORDS.length} solved`;
+  }
+
+  function resetActive(){
+    activeIndex = null;
+    activeDir   = null;
+    activeWordMeta = null;
+    activeCells = [];
+    clearChoices();
+    entryLabel.textContent = "No cell selected";
+    wordInput.value = "";
+    wordInput.disabled = true;
+    submitBtn.disabled = true;
+  }
+
+  function clearHighlight(){
+    cellEls.forEach(el=>{
+      el.classList.remove("dimmed","highlightPath");
+    });
+  }
+
+  function highlightWordPath(wordKey){
+    const cells = wordCells.get(wordKey) || [];
+    if (!cells.length) return;
+    cellEls.forEach(el=>{
+      if (el.classList.contains("blank")) return;
+      el.classList.add("dimmed");
+      el.classList.remove("highlightPath");
+    });
+    cells.forEach(k=>{
+      const el = cellEls.get(k);
+      if (!el) return;
+      el.classList.remove("dimmed");
+      el.classList.add("highlightPath");
+    });
+  }
+
+  function selectIndexCell(r,c){
+    const k = cellKey(r,c);
+    if (!solution.has(k)) return;
+    const el = cellEls.get(k);
+    if (!el.classList.contains("index")) return;
+
+    activeIndex = { r, c, letter: solution.get(k) };
+    activeDir = null;
+    activeWordMeta = null;
+    activeCells = [];
+    clearChoices();
+
+    const right = cellKey(r, c+1);
+    const down  = cellKey(r+1, c);
+    const choices = [];
+    if (solution.has(right)) choices.push(right);
+    if (solution.has(down))  choices.push(down);
+
+    choices.forEach(k2=>{
+      const cel = cellEls.get(k2);
+      if (cel) cel.classList.add("choice");
+    });
+
+    entryLabel.textContent = "Choose direction: click glowing right / down cell";
+    wordInput.disabled = true;
+    submitBtn.disabled = true;
+  }
+
+  function pickDirectionFromCell(r,c){
+    if (!activeIndex) return;
+    const dr = r - activeIndex.r;
+    const dc = c - activeIndex.c;
+    if (dr===0 && dc===1) activeDir = "across";
+    else if (dr===1 && dc===0) activeDir = "down";
+    else return;
+
+    activeWordMeta = null;
+    activeCells = [];
+    for (const p of PLACEMENTS){
+      if (p.r===activeIndex.r && p.c===activeIndex.c && p.dir===activeDir){
+        activeWordMeta = WORDS.find(w=>w.key===p.word);
+        activeCells = wordCells.get(p.word) || [];
+        break;
+      }
+    }
+
+    if (!activeWordMeta){
+      entryLabel.textContent = "No word defined for that direction.";
+      activeDir = null;
+      activeCells = [];
+      return;
+    }
+
+    entryLabel.textContent = `Type the word starting ${activeDir} from "${activeIndex.letter}"`;
+    wordInput.disabled = false;
+    submitBtn.disabled = false;
+    wordInput.focus();
+
+    highlightWordPath(activeWordMeta.key);
+  }
+
+  function waveSolve(cells){
+    cells.forEach((k,i)=>{
+      const el = cellEls.get(k);
+      if (!el) return;
+      setTimeout(()=>{
+        el.classList.add("solved");
+        el.classList.remove("hinted");
+        el.textContent = solution.get(k);
+      }, i*80);
+    });
+  }
+
+  function pulsePill(el, cls){
+    el.classList.remove("pulse-good","pulse-bad");
+    // force reflow for repeatable animation
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
+
+  function maybeShowDonePopup(){
+    showOverlay(doneOverlay);
+    try { doneYes.focus(); } catch {}
+  }
+
+  function trySubmit(){
+    if (!activeWordMeta || !activeCells.length) return;
+    const raw = (wordInput.value || "").trim().toUpperCase();
+    const guess = raw.replace(/\s+/g,"");
+    const correct = activeWordMeta.key.toUpperCase();
+
+    if (guess === correct){
+      SOLVED.add(correct);
+      waveSolve(activeCells);
+      updateProgress();
+      statusPill.textContent = "Nice.";
+      hintText.textContent = `Solved: ${correct}`;
+      pulsePill(statusPillWrap, "pulse-good");
+
+      const li = clueEls.get(correct);
+      if (li && !li.classList.contains("done")){
+        li.classList.add("done");
+      }
+
+      if (SOLVED.size === WORDS.length){
+        verifiedBtn.classList.add("on");
+        verifiedBtn.textContent = "Verified ✓";
+        statusPill.textContent = "Verified";
+        window.isHuman = true;
+
+        // show completion popup (same style as intro)
+        setTimeout(() => maybeShowDonePopup(), reduceMotion ? 0 : 650);
+      }
+    } else {
+      statusPill.textContent = "Wrong word.";
+      hintText.textContent = "Try again or choose another branch.";
+      pulsePill(statusPillWrap, "pulse-bad");
+    }
+
+    clearHighlight();
+    resetActive();
+  }
+
+  // Hint FX + reveal one random unrevealed letter
+  function playHintFx(){
+    const fx = document.createElement("div");
+    fx.className = "hintFx";
+    fx.innerHTML = `
+      <div class="hintFx__tile">HINT</div>
+      <div class="hintFx__dust"></div>
+      <div class="hintFx__dust"></div>
+      <div class="hintFx__dust"></div>
+      <div class="hintFx__dust"></div>
+      <div class="hintFx__dust"></div>
+    `;
+    document.body.appendChild(fx);
+    setTimeout(() => fx.remove(), reduceMotion ? 0 : 980);
+  }
+
+  function revealRandomLetter(){
+    // Candidates = solution cells that are not already visibly filled by solved words or by prior hints
+    const candidates = [];
+    solution.forEach((letter, k) => {
+      const el = cellEls.get(k);
+      if (!el) return;
+      if (el.classList.contains("blank")) return;
+      if (el.classList.contains("solved")) return;
+      // if already showing a hinted letter, skip
+      if ((el.textContent || "").trim().length > 0) return;
+      candidates.push(k);
+    });
+
+    if (!candidates.length){
+      statusPill.textContent = "No hints left.";
+      pulsePill(statusPillWrap, "pulse-bad");
+      return;
+    }
+
+    const pick = candidates[Math.floor(Math.random()*candidates.length)];
+    const el = cellEls.get(pick);
+    el.textContent = solution.get(pick);
+    el.classList.add("hinted");
+    HINTED.add(pick);
+
+    statusPill.textContent = "Hint used.";
+    hintText.textContent = "A letter was revealed somewhere on the grid.";
+    pulsePill(statusPillWrap, "pulse-good");
+  }
+
+  cwGrid.addEventListener("click", e=>{
+    const cell = e.target.closest(".cell");
+    if (!cell || cell.classList.contains("blank")) return;
+    const r = parseInt(cell.dataset.r,10);
+    const c = parseInt(cell.dataset.c,10);
+
+    if (cell.classList.contains("index")){
+      resetActive();
+      clearHighlight();
+      selectIndexCell(r,c);
+    } else if (cell.classList.contains("choice")){
+      pickDirectionFromCell(r,c);
+    }
+  });
+
+  submitBtn.addEventListener("click", trySubmit);
+  wordInput.addEventListener("keydown", e=>{
+    if (e.key === "Enter") trySubmit();
+  });
+
+  hintBtn.addEventListener("click", () => {
+    // animation first, then reveal
+    playHintFx();
+    setTimeout(() => revealRandomLetter(), reduceMotion ? 0 : 820);
+  });
+
+  resetBtn.addEventListener("click", ()=>{
+    SOLVED.clear();
+    HINTED.clear();
+    cwGrid.querySelectorAll(".cell").forEach(el=>{
+      el.classList.remove("solved","dimmed","highlightPath","hinted");
+      if (!el.classList.contains("blank")) el.textContent = "";
+    });
+    clueEls.forEach(li=>li.classList.remove("done"));
+    verifiedBtn.classList.remove("on");
+    verifiedBtn.textContent = "Verified";
+    statusPill.textContent = "Ready";
+    hintText.textContent = "Solve all 8 words to unlock the portal.";
+    window.isHuman = false;
+    clearHighlight();
+    resetActive();
+    updateProgress();
+  });
+
+  doneYes.addEventListener("click", () => {
+    // close with the same fade-out style, then navigate
+    closeOverlay(doneOverlay);
+    setTimeout(() => {
+      window.location.href = "coffee_pacman.html";
+    }, reduceMotion ? 0 : 520);
+  });
+
+  function init(){
+    buildSolution();
+    renderClues();
+    renderGrid();
+    updateProgress();
+    runIntroGate();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

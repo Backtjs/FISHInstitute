@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FISH Institute - Coffee Mood Widget</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f4f8;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    /* Small card (initial state) */
+    .coffee-card {
+      background: #FFFBF5;
+      border: 1px solid #D4B896;
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(62, 39, 35, 0.12);
+      padding: 20px;
+      width: 280px;
+      height: 280px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+    }
+
+    .coffee-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 14px 32px rgba(62, 39, 35, 0.18);
+    }
+
+    .coffee-card__title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6F4E37;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 12px;
+    }
+
+    .coffee-card__subtitle {
+      font-size: 12px;
+      color: #A67C52;
+      margin-bottom: 20px;
+    }
+
+    .coffee-card__preview {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .coffee-icon {
+      font-size: 48px;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .click-hint {
+      font-size: 11px;
+      color: #A67C52;
+      text-align: center;
+      padding: 8px 16px;
+      background: #F5E6D3;
+      border-radius: 20px;
+      border: 1px solid #D4B896;
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(62, 39, 35, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 1;
+    }
+
+    /* Expanded modal */
+    .coffee-modal {
+      background: #FFFBF5;
+      border: 2px solid #D4B896;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(62, 39, 35, 0.25);
+      padding: 32px;
+      max-width: 600px;
+      width: 90%;
+      position: relative;
+      transform: scale(0.9);
+      transition: transform 0.3s ease;
+    }
+
+    .modal-overlay.active .coffee-modal {
+      transform: scale(1);
+    }
+
+    /* Close button */
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid #6F4E37;
+      background: #fff;
+      color: #6F4E37;
+      font-size: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .modal-close:hover {
+      background: #6F4E37;
+      color: #fff;
+      transform: rotate(90deg);
+    }
+
+    .modal-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: #3E2723;
+      margin-bottom: 8px;
+    }
+
+    .modal-subtitle {
+      font-size: 14px;
+      color: #A67C52;
+      margin-bottom: 32px;
+    }
+
+    /* Main content area */
+    .coffee-content {
+      display: flex;
+      gap: 32px;
+      align-items: center;
+    }
+
+    /* Left: Coffee cup */
+    .coffee-cup-container {
+      flex: 0 0 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+
+    /* Classic Nescafe mug shape */
+    .coffee-cup {
+      width: 140px;
+      height: 180px;
+      position: relative;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .coffee-cup:hover {
+      transform: scale(1.05);
+    }
+
+    .coffee-cup:active {
+      transform: scale(0.98);
+    }
+
+    /* Mug body (classic cylindrical Nescafe shape) */
+    .cup-body {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100px;
+      height: 140px;
+      background: #E8D5C4;
+      border: 3px solid #6F4E37;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.05);
+    }
+
+    /* Coffee fill (rises from bottom) */
+    .coffee-fill {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: linear-gradient(180deg, #8B5A3C 0%, #6F4E37 100%);
+      transition: height 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+    }
+
+    /* Mug handle (classic C-shape) */
+    .cup-handle {
+      position: absolute;
+      right: -12px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 60px;
+      background: #E8D5C4;
+      border: 3px solid #6F4E37;
+      border-left: none;
+      border-radius: 0 50% 50% 0;
+      box-shadow: inset 0 1px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Inner handle cutout */
+    .cup-handle::before {
+      content: '';
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 24px;
+      height: 40px;
+      background: #f0f4f8;
+      border-radius: 0 50% 50% 0;
+    }
+
+    /* Nescafe logo vertical text */
+    .cup-logo-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .cup-logo-wrapper {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cup-logo {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) rotate(-90deg);
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      white-space: nowrap;
+      font-family: 'Arial Black', sans-serif;
+    }
+
+    /* Brown logo (default) */
+    .cup-logo-brown {
+      color: #6F4E37;
+      z-index: 2;
+    }
+
+    /* Cream logo (revealed by coffee LEFT to RIGHT) */
+    .cup-logo-cream {
+      color: #FFFBF5;
+      z-index: 3;
+      clip-path: inset(0 100% 0 0);
+      transition: clip-path 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Steam animation */
+    .steam {
+      position: absolute;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+      transition: opacity 0.4s ease;
+    }
+
+    .steam.active {
+      opacity: 1;
+    }
+
+    .steam-line {
+      width: 3px;
+      height: 25px;
+      background: linear-gradient(180deg, transparent, #A67C52, transparent);
+      border-radius: 50px;
+      animation: steam-rise 2s ease-in-out infinite;
+    }
+
+    .steam-line:nth-child(2) {
+      animation-delay: 0.3s;
+    }
+
+    .steam-line:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+
+    @keyframes steam-rise {
+      0% { transform: translateY(0) scaleY(1); opacity: 0; }
+      50% { opacity: 1; }
+      100% { transform: translateY(-15px) scaleY(1.5); opacity: 0; }
+    }
+
+    /* Click counter */
+    .coffee-counter {
+      font-size: 14px;
+      font-weight: 600;
+      color: #6F4E37;
+      text-align: center;
+      padding: 8px 16px;
+      background: #F5E6D3;
+      border-radius: 20px;
+      border: 1px solid #D4B896;
+    }
+
+    /* Right: Shifa's photo */
+    .mood-photo-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mood-photo {
+      width: 100%;
+      height: 320px;
+      border-radius: 16px;
+      border: 2px solid #D4B896;
+      overflow: hidden;
+      position: relative;
+      background: #F5E6D3;
+    }
+
+    .mood-photo img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: opacity 0.5s ease;
+    }
+
+    /* Placeholder for photos */
+    .photo-placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #A67C52;
+      font-size: 14px;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .photo-placeholder-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.5;
+    }
+
+    /* Mood label */
+    .mood-label {
+      font-size: 16px;
+      font-weight: 700;
+      color: #3E2723;
+      text-align: center;
+      padding: 12px;
+      background: #F5E6D3;
+      border-radius: 12px;
+      border: 1px solid #D4B896;
+    }
+
+    /* Reset button */
+    .reset-btn {
+      margin-top: 16px;
+      padding: 10px 20px;
+      background: #6F4E37;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+    }
+
+    .reset-btn:hover {
+      background: #5A3E2B;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(111, 78, 55, 0.3);
+    }
+
+    .reset-btn:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Small card (clickable) -->
+  <div class="coffee-card" id="coffeeCard">
+    <h3 class="coffee-card__title">Coffee × Mood</h3>
+    <p class="coffee-card__subtitle">Interactive mood tracker</p>
+    <div class="coffee-card__preview">
+      <div class="coffee-icon">☕</div>
+      <div class="click-hint">Click to explore</div>
+    </div>
+  </div>
+
+  <!-- Modal overlay -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="coffee-modal">
+      <button class="modal-close" id="modalClose">×</button>
+      
+      <h2 class="modal-title">Coffee × Shifa's Mood</h2>
+      <p class="modal-subtitle">Click the cup to pour coffee and watch the mood improve ☕</p>
+
+      <div class="coffee-content">
+        <!-- Left: Coffee mug -->
+        <div class="coffee-cup-container">
+          <div class="coffee-cup" id="coffeeCup">
+            <div class="steam" id="steam">
+              <div class="steam-line"></div>
+              <div class="steam-line"></div>
+              <div class="steam-line"></div>
+            </div>
+            <div class="cup-body">
+              <div class="cup-logo-container">
+                <div class="cup-logo-wrapper">
+                  <div class="cup-logo cup-logo-brown">NESCAFÉ</div>
+                  <div class="cup-logo cup-logo-cream" id="cupLogoCream">NESCAFÉ</div>
+                </div>
+              </div>
+              <div class="coffee-fill" id="coffeeFill"></div>
+            </div>
+            <div class="cup-handle"></div>
+          </div>
+          <div class="coffee-counter" id="coffeeCounter">0 cups</div>
+          <button class="reset-btn" id="resetBtn">Reset</button>
+        </div>
+
+        <!-- Right: Shifa's photo -->
+        <div class="mood-photo-container">
+          <div class="mood-photo" id="moodPhoto">
+            <div class="photo-placeholder">
+              <div class="photo-placeholder-icon">📷</div>
+              <div>Insert Shifa's photo here<br/>(Level 0: Pre-coffee mood)</div>
+            </div>
+          </div>
+          <div class="mood-label" id="moodLabel">Mood: Sleepy & Grumpy</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const coffeeCard = document.getElementById('coffeeCard');
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalClose = document.getElementById('modalClose');
+    const coffeeCup = document.getElementById('coffeeCup');
+    const coffeeFill = document.getElementById('coffeeFill');
+    const cupLogoCream = document.getElementById('cupLogoCream');
+    const coffeeCounter = document.getElementById('coffeeCounter');
+    const moodPhoto = document.getElementById('moodPhoto');
+    const moodLabel = document.getElementById('moodLabel');
+    const resetBtn = document.getElementById('resetBtn');
+    const steam = document.getElementById('steam');
+
+    let cupLevel = 0;
+    const maxLevel = 5;
+
+    // Mood states with photo placeholders
+    const moodStates = [
+      { 
+        level: 0, 
+        fill: 0, 
+        mood: "Sleepy & Grumpy", 
+        photo: null,
+        placeholder: "Level 0: Pre-coffee mood"
+      },
+      { 
+        level: 1, 
+        fill: 20, 
+        mood: "Slightly Awake", 
+        photo: null,
+        placeholder: "Level 1: First sip effect"
+      },
+      { 
+        level: 2, 
+        fill: 40, 
+        mood: "Getting Better", 
+        photo: null,
+        placeholder: "Level 2: Starting to smile"
+      },
+      { 
+        level: 3, 
+        fill: 60, 
+        mood: "Energized", 
+        photo: null,
+        placeholder: "Level 3: Fully energized"
+      },
+      { 
+        level: 4, 
+        fill: 80, 
+        mood: "Happy & Productive", 
+        photo: null,
+        placeholder: "Level 4: Peak happiness"
+      },
+      { 
+        level: 5, 
+        fill: 100, 
+        mood: "Caffeinated Bliss ✨", 
+        photo: null,
+        placeholder: "Level 5: Maximum excitement!"
+      },
+    ];
+
+    // Open modal
+    coffeeCard.addEventListener('click', () => {
+      modalOverlay.classList.add('active');
+    });
+
+    // Close modal
+    modalClose.addEventListener('click', () => {
+      modalOverlay.classList.remove('active');
+    });
+
+    modalOverlay.addEventListener('click', (e) => {
+      if (e.target === modalOverlay) {
+        modalOverlay.classList.remove('active');
+      }
+    });
+
+    // Fill coffee mug
+    coffeeCup.addEventListener('click', () => {
+      if (cupLevel < maxLevel) {
+        cupLevel++;
+        updateCoffeeState();
+      }
+    });
+
+    // Reset
+    resetBtn.addEventListener('click', () => {
+      cupLevel = 0;
+      updateCoffeeState();
+    });
+
+    function updateCoffeeState() {
+      const state = moodStates[cupLevel];
+      
+      // Update fill level
+      coffeeFill.style.height = `${state.fill}%`;
+      
+      // Perfect 1:1 mapping - rectangular mug means direct correspondence
+      const logoClipRight = 100 - state.fill;
+      cupLogoCream.style.clipPath = `inset(0 ${logoClipRight}% 0 0)`;
+      
+      // Update counter
+      coffeeCounter.textContent = `${cupLevel} cup${cupLevel !== 1 ? 's' : ''}`;
+      
+      // Update mood label
+      moodLabel.textContent = `Mood: ${state.mood}`;
+      
+      // Update photo (or show placeholder)
+      if (state.photo) {
+        moodPhoto.innerHTML = `<img src="${state.photo}" alt="Shifa mood level ${cupLevel}">`;
+      } else {
+        moodPhoto.innerHTML = `
+          <div class="photo-placeholder">
+            <div class="photo-placeholder-icon">📷</div>
+            <div>Insert Shifa's photo here<br/>(${state.placeholder})</div>
+          </div>
+        `;
+      }
+
+      // Show steam when cup is full
+      if (cupLevel >= 3) {
+        steam.classList.add('active');
+      } else {
+        steam.classList.remove('active');
+      }
+    }
+
+    // Initialize
+    updateCoffeeState();
+  </script>
+
+</body>
+</html>
